@@ -143,7 +143,7 @@ void RemoteProcessorGroupPort::onSchedule(const std::shared_ptr<core::ProcessCon
 
   std::string http_enabled_str;
   if (configure_->get(Configure::nifi_remote_input_http, http_enabled_str)) {
-    if (utils::StringUtils::StringToBool(http_enabled_str, http_enabled_)) {
+    if (utils::StringUtils::NewStringToBool(http_enabled_str, http_enabled_) && http_enabled_) {
       if (client_type_ == sitetosite::CLIENT_TYPE::RAW) {
         logger_->log_trace("Remote Input HTTP Enabled, but raw has been suggested for %s", protocol_uuid_.to_string());
       }
@@ -160,8 +160,8 @@ void RemoteProcessorGroupPort::onSchedule(const std::shared_ptr<core::ProcessCon
   } else {
     std::string secureStr;
     bool is_secure = false;
-    if (configure_->get(Configure::nifi_remote_input_secure, secureStr) &&
-        org::apache::nifi::minifi::utils::StringUtils::StringToBool(secureStr, is_secure)) {
+    org::apache::nifi::minifi::utils::StringUtils::NewStringToBool(secureStr, is_secure);
+    if (configure_->get(Configure::nifi_remote_input_secure, secureStr) && is_secure) {
       ssl_service = std::make_shared<minifi::controllers::SSLContextService>(RPG_SSL_CONTEXT_SERVICE_NAME, configure_);
       ssl_service->onEnable();
     }

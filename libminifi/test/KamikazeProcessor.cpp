@@ -57,10 +57,10 @@ void KamikazeProcessor::onSchedule(core::ProcessContext *context, core::ProcessS
 
   _throwInOnTrigger = false;
   context->getProperty(ThrowInOnTrigger.getName(), value);
-  _throwInOnTrigger = utils::StringUtils::StringToBool(value, bool_value) && bool_value;
+  _throwInOnTrigger = utils::StringUtils::NewStringToBool(value, bool_value) && bool_value;
 
   context->getProperty(ThrowInOnSchedule.getName(), value);
-  if (utils::StringUtils::StringToBool(value, bool_value) && bool_value) {
+  if (utils::StringUtils::NewStringToBool(value, bool_value) && bool_value) {
     throw Exception(PROCESS_SCHEDULE_EXCEPTION, OnScheduleExceptionStr);
   }
   logger_->log_error("%s", OnScheduleLogStr);

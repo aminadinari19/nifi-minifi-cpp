@@ -78,8 +78,8 @@ class StringUtils {
    * @param input input string
    * @param output output string.
    */
-  static bool StringToBool(std::string input, bool &output);
-
+  static void StringToBool(std::string input, bool &output);
+  static bool NewStringToBool(std::string input, bool &output);
   // Trim String utils
 
   /**

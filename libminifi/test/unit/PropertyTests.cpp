@@ -53,15 +53,23 @@ bool conversionTest(uint64_t number, core::TimeUnit unit, uint64_t check, Conver
 }
 
 TEST_CASE("Test Boolean Conversion", "[testboolConversion]") {
-  bool b;
-  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::StringToBool("true", b));
-  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::StringToBool("True", b));
+  bool b = false;
+  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::NewStringToBool("true", b));
+  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::NewStringToBool("True", b));
+  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::NewStringToBool("TRue", b));
+  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::NewStringToBool("FALSE", b));
+  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::NewStringToBool("FaLSE", b));
+  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::NewStringToBool("false", b));
+  REQUIRE(b == false);
+  REQUIRE(false == (org::apache::nifi::minifi::utils::StringUtils::NewStringToBool("false", b) && b));
+
+ /* REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::StringToBool("True", b));
   REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::StringToBool("TRue", b));
   REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::StringToBool("tRUE", b));
-  REQUIRE(false == org::apache::nifi::minifi::utils::StringUtils::StringToBool("FALSE", b));
+  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::StringToBool("FALSE", b));
   REQUIRE(false == org::apache::nifi::minifi::utils::StringUtils::StringToBool("FALLSEY", b));
-  REQUIRE(false == org::apache::nifi::minifi::utils::StringUtils::StringToBool("FaLSE", b));
-  REQUIRE(false == org::apache::nifi::minifi::utils::StringUtils::StringToBool("false", b));
+  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::StringToBool("FaLSE", b));
+  REQUIRE(true == org::apache::nifi::minifi::utils::StringUtils::StringToBool("false", b)); */
 }
 
 TEST_CASE("Test Time Conversion", "[testConversion]") {

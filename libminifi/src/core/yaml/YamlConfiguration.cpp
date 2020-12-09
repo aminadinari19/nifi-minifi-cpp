@@ -682,7 +682,8 @@ void YamlConfiguration::parseConnectionYaml(YAML::Node *connectionsNode, core::P
         if (connectionNode["drop empty"]) {
           std::string strvalue = connectionNode["drop empty"].as<std::string>();
           bool dropEmpty = false;
-          if (utils::StringUtils::StringToBool(strvalue, dropEmpty)) {
+          utils::StringUtils::StringToBool(strvalue, dropEmpty);
+          if (dropEmpty) {
             connection->setDropEmptyFlowFiles(dropEmpty);
           }
         }

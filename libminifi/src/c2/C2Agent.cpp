@@ -232,7 +232,8 @@ void C2Agent::configure(const std::shared_ptr<Configure> &configure, bool reconf
   }
 
   std::string update_settings;
-  if (configure->get("nifi.c2.agent.update.allow", "c2.agent.update.allow", update_settings) && utils::StringUtils::StringToBool(update_settings, allow_updates_)) {
+  utils::StringUtils::NewStringToBool(update_settings, allow_updates_);
+  if (configure->get("nifi.c2.agent.update.allow", "c2.agent.update.allow", update_settings) && allow_updates_) {
     // allow the agent to be updated. we then need to get an update command to execute after
   }
 
@@ -701,7 +702,8 @@ void C2Agent::handle_update(const C2ContentResponse &resp) {
           bool backup_file = false;
           std::string backup_config;
 
-          if (configuration_->get(minifi::Configure::nifi_flow_configuration_file_backup_update, backup_config) && utils::StringUtils::StringToBool(backup_config, backup_file)) {
+          utils::StringUtils::StringToBool(backup_config, backup_file);
+          if (configuration_->get(minifi::Configure::nifi_flow_configuration_file_backup_update, backup_config) && backup_file) {
             if (utils::file::FileUtils::copy_file(config_file, config_file_backup.str()) != 0) {
               logger_->log_debug("Cannot copy %s to %s", config_file, config_file_backup.str());
               persist_config = false;
@@ -743,7 +745,8 @@ void C2Agent::handle_update(const C2ContentResponse &resp) {
           bool backup_file = false;
           std::string backup_config;
 
-          if (configuration_->get(minifi::Configure::nifi_flow_configuration_file_backup_update, backup_config) && utils::StringUtils::StringToBool(backup_config, backup_file)) {
+          utils::StringUtils::StringToBool(backup_config, backup_file);
+          if (configuration_->get(minifi::Configure::nifi_flow_configuration_file_backup_update, backup_config) && backup_file) {
             if (utils::file::FileUtils::copy_file(config_file, config_file_backup.str()) != 0) {
               persist_config = false;
             }

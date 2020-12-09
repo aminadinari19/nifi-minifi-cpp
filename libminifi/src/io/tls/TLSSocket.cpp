@@ -67,7 +67,8 @@ int16_t TLSContext::initialize(bool server_method) {
 
   std::string clientAuthStr;
   bool needClientCert = true;
-  if (!(configure_->get(Configure::nifi_security_need_ClientAuth, clientAuthStr) && org::apache::nifi::minifi::utils::StringUtils::StringToBool(clientAuthStr, needClientCert))) {
+  org::apache::nifi::minifi::utils::StringUtils::StringToBool(clientAuthStr, needClientCert);
+  if (!(configure_->get(Configure::nifi_security_need_ClientAuth, clientAuthStr) && needClientCert)) {
     needClientCert = true;
   }
   const SSL_METHOD *method;

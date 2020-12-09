@@ -25,10 +25,16 @@ namespace nifi {
 namespace minifi {
 namespace utils {
 
-bool StringUtils::StringToBool(std::string input, bool &output) {
+void StringUtils::StringToBool(std::string input, bool &output) {
   std::transform(input.begin(), input.end(), input.begin(), ::tolower);
   std::istringstream(input) >> std::boolalpha >> output;
-  return output;
+  // return output;
+}
+
+bool StringUtils::NewStringToBool(std::string input, bool &output) {
+  std::transform(input.begin(), input.end(), input.begin(), ::tolower);
+  output = "true" == input;
+  return output || "false" == input;
 }
 
 std::string StringUtils::trim(std::string s) {

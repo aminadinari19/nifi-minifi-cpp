@@ -51,7 +51,8 @@ void ControllerSocketProtocol::initialize(core::controller::ControllerServicePro
   if (nullptr == secure_context) {
     std::string secureStr;
     bool is_secure = false;
-    if (configuration->get(Configure::nifi_remote_input_secure, secureStr) && org::apache::nifi::minifi::utils::StringUtils::StringToBool(secureStr, is_secure)) {
+    org::apache::nifi::minifi::utils::StringUtils::NewStringToBool(secureStr, is_secure);
+    if (configuration->get(Configure::nifi_remote_input_secure, secureStr) && is_secure) {
       secure_context = std::make_shared<minifi::controllers::SSLContextService>("ControllerSocketProtocolSSL", configuration);
       secure_context->onEnable();
     }

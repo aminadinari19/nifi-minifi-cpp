@@ -64,7 +64,7 @@ void HashContent::onSchedule(core::ProcessContext *context, core::ProcessSession
 
   if (context->getProperty(HashAlgorithm.getName(), value)) {
     bool bool_value;
-    failOnEmpty_ = utils::StringUtils::StringToBool(value, bool_value) && bool_value;  // Only true in case of valid true string
+    failOnEmpty_ = utils::StringUtils::NewStringToBool(value, bool_value) && bool_value;  // Only true in case of valid true string
   } else {
     failOnEmpty_ = false;
   }

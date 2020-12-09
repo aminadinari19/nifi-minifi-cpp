@@ -80,11 +80,11 @@ void UpdatePolicyControllerService::onEnable() {
 
   bool enable_all = false;
   if (getProperty(AllowAllProperties.getName(), enableStr)) {
-    enable_all = utils::StringUtils::StringToBool(enableStr, enable_all);
+    enable_all = utils::StringUtils::NewStringToBool(enableStr, enable_all) && enable_all;
   }
 
   if (getProperty(PersistUpdates.getName(), persistStr)) {
-    persist_updates_ = utils::StringUtils::StringToBool(persistStr, persist_updates_);
+    persist_updates_ = utils::StringUtils::NewStringToBool(persistStr, persist_updates_) && persist_updates_;
   }
 
   auto builder = state::UpdatePolicyBuilder::newBuilder(enable_all);
