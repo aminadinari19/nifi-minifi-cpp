@@ -52,6 +52,7 @@ class Configuration : public Properties {
   // nifi.flow.configuration.file
   static constexpr const char *nifi_default_directory = "nifi.default.directory";
   static constexpr const char *nifi_flow_configuration_file = "nifi.flow.configuration.file";
+  static constexpr const char *nifi_flow_configuration_encrypt = "nifi.flow.configuration.encrypt";
   static constexpr const char *nifi_flow_configuration_file_exit_failure = "nifi.flow.configuration.file.exit.onfailure";
   static constexpr const char *nifi_flow_configuration_file_backup_update = "nifi.flow.configuration.backup.on.update";
   static constexpr const char *nifi_flow_engine_threads = "nifi.flow.engine.threads";
@@ -85,6 +86,12 @@ class Configuration : public Properties {
   static constexpr const char *nifi_security_client_private_key = "nifi.security.client.private.key";
   static constexpr const char *nifi_security_client_pass_phrase = "nifi.security.client.pass.phrase";
   static constexpr const char *nifi_security_client_ca_certificate = "nifi.security.client.ca.certificate";
+  static constexpr const char *nifi_security_use_system_cert_store = "nifi.security.use.system.cert.store";
+  static constexpr const char *nifi_security_windows_cert_store_location = "nifi.security.windows.cert.store.location";
+  static constexpr const char *nifi_security_windows_server_cert_store = "nifi.security.windows.server.cert.store";
+  static constexpr const char *nifi_security_windows_client_cert_store = "nifi.security.windows.client.cert.store";
+  static constexpr const char *nifi_security_windows_client_cert_cn = "nifi.security.windows.client.cert.cn";
+  static constexpr const char *nifi_security_windows_client_cert_key_usage = "nifi.security.windows.client.cert.key.usage";
 
   // nifi rest api user name and password
   static constexpr const char *nifi_rest_api_user_name = "nifi.rest.api.user.name";
@@ -99,6 +106,7 @@ class Configuration : public Properties {
 
   // state management options
   static constexpr const char *nifi_state_management_provider_local = "nifi.state.management.provider.local";
+  static constexpr const char *nifi_state_management_provider_local_class_name = "nifi.state.management.provider.local.class.name";
   static constexpr const char *nifi_state_management_provider_local_always_persist = "nifi.state.management.provider.local.always.persist";
   static constexpr const char *nifi_state_management_provider_local_auto_persistence_interval = "nifi.state.management.provider.local.auto.persistence.interval";
 

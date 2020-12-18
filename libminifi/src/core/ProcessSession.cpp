@@ -339,7 +339,7 @@ void ProcessSession::importFrom(io::InputStream &stream, const std::shared_ptr<c
     size_t position = 0;
     const size_t max_size = stream.size();
     while (position < max_size) {
-      const size_t read_size = (std::min)(max_read, max_size - position);
+      const size_t read_size = std::min(max_read, max_size - position);
       stream.read(charBuffer, read_size);
 
       content_stream->write(charBuffer.data(), read_size);
@@ -744,6 +744,8 @@ void ProcessSession::commit() {
         }
     }
 
+    ensureNonNullResourceClaim(connectionQueues);
+
     content_session_->commit();
 
     persistFlowFilesBeforeTransfer(connectionQueues, _updatedFlowFiles);
@@ -887,6 +889,22 @@ void ProcessSession::persistFlowFilesBeforeTransfer(
       if (originalClaim) originalClaim->decreaseFlowFileRecordOwnedCount();
 
       ff->setStoredToRepository(true);
+    }
+  }
+}
+
+void ProcessSession::ensureNonNullResourceClaim(
+    const std::map<std::shared_ptr<Connectable>, std::vector<std::shared_ptr<core::FlowFile>>> &transactionMap) {
+  for (auto& transaction : transactionMap) {
+    for (auto& flowFile : transaction.second) {
+      auto claim = flowFile->getResourceClaim();
+      if (!claim) {
+        logger_->log_debug("Processor %s (%s) did not create a ResourceClaim, creating an empty one",
+                           process_context_->getProcessorNode()->getUUIDStr(),
+                           process_context_->getProcessorNode()->getName());
+        OutputStreamPipe emptyStreamCallback(std::make_shared<io::BufferStream>());
+        write(flowFile, &emptyStreamCallback);
+      }
     }
   }
 }

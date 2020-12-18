@@ -18,14 +18,15 @@
 #ifndef LIBMINIFI_TEST_CURL_TESTS_SITETOSITEHTTP_HTTPHANDLERS_H_
 #define LIBMINIFI_TEST_CURL_TESTS_SITETOSITEHTTP_HTTPHANDLERS_H_
 
+#include <algorithm>
+#include <cinttypes>
+#include <utility>
 #include "civetweb.h"
 #include "CivetServer.h"
 #include "concurrentqueue.h"
 #include "CivetStream.h"
 #include "io/CRCStream.h"
 #include "rapidjson/document.h"
-#include <cinttypes>
-#include <utility>
 #include "HTTPUtils.h"
 #include "ServerAwareHandler.h"
 
@@ -482,11 +483,19 @@ class C2UpdateHandler : public ServerAwareHandler {
     return true;
   }
 
-  virtual void setC2RestResponse(const std::string& url, const std::string& name) {
-    response_ = "{\"operation\" : \"heartbeat\",\"requested_operations\": [  {"
-        "\"operation\" : \"update\", "
-        "\"operationid\" : \"8675309\", "
-        "\"name\": \"" + name + "\", \"content\": { \"location\": \"" + url + "\"}}]}";
+  void setC2RestResponse(const std::string& url, const std::string& name, const utils::optional<std::string>& persist = {}) {
+    std::string content = "{\"location\": \"" + url + "\"";
+    if (persist) {
+      content += ", \"persist\": \"" + *persist + "\"";
+    }
+    content += "}";
+    response_ =
+        "{\"operation\" : \"heartbeat\", "
+          "\"requested_operations\": [  {"
+            "\"operation\" : \"update\", "
+            "\"operationid\" : \"8675309\", "
+            "\"name\": \"" + name + "\", "
+            "\"content\": " + content + "}]}";
   }
 
   std::atomic<size_t> calls_{0};
@@ -566,7 +575,7 @@ public:
     if (!wait_times_.empty() && wait_times_[0] > std::chrono::seconds(0)) {
       sleep_for(wait_times_[0]);
     }
-    int chunk_count = (std::max)(static_cast<int>(wait_times_.size()) - 1, 0);
+    int chunk_count = std::max(static_cast<int>(wait_times_.size()) - 1, 0);
     mg_printf(conn, "HTTP/1.1 201 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", chunk_count);
     for (int chunkIdx = 0; chunkIdx < chunk_count; ++chunkIdx) {
       mg_printf(conn, "a");

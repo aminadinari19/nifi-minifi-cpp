@@ -899,6 +899,8 @@ In the list below, the names of required properties appear in bold. Any other pr
 |**Create Missing Directories**|true||If true, then missing destination directories will be created. If false, flowfiles are penalized and sent to failure.|
 |Directory|.||The output directory to which to put files<br/>**Supports Expression Language: true**|
 |Maximum File Count|-1||Specifies the maximum number of files that can exist in the output directory|
+|Permissions|||Sets the permissions on the output file to the value of this attribute. Must be an octal number (e.g. 644 or 0755). Not supported on Windows systems.|
+|Directory Permissions|||Sets the permissions on the directories being created if 'Create Missing Directories' property is set. Must be an octal number (e.g. 644 or 0755). Not supported on Windows systems.|
 ### Relationships
 
 | Name | Description |
@@ -955,6 +957,7 @@ In the list below, the names of required properties appear in bold. Any other pr
 |Object Key|||The key of the S3 object. If none is given the filename attribute will be used by default.<br/>**Supports Expression Language: true**|
 |**Bucket**|||The S3 bucket<br/>**Supports Expression Language: true**|
 |Content Type|||Sets the Content-Type HTTP header indicating the type of content stored in the associated object. The value of this header is a standard MIME type. If no content type is provided the default content type "application/octet-stream" will be used.<br/>**Supports Expression Language: true**|
+|**Use Default Credentials**|false||If true, uses the Default Credential chain to obtain AWS credentials, including EC2 instance profiles or roles, environment variables, default user credentials, etc.|
 |Access Key|||AWS account access key<br/>**Supports Expression Language: true**|
 |Secret Key|||AWS account secret key<br/>**Supports Expression Language: true**|
 |Credentials File|||Path to a file containing AWS access key and secret key in properties file format. Properties used: accessKey and secretKey|

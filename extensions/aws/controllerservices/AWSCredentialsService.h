@@ -19,22 +19,15 @@
 #pragma once
 
 #include <string>
-#include <iostream>
 #include <memory>
 
-#include "aws/s3/model/Bucket.h"
-#include "aws/s3/model/PutObjectRequest.h"
-#include "aws/core/Aws.h"
 #include "aws/core/auth/AWSCredentials.h"
-#include "aws/s3/S3Client.h"
 
 #include "utils/AWSInitializer.h"
 #include "core/Resource.h"
-#include "utils/StringUtils.h"
-#include "io/validation.h"
 #include "core/controller/ControllerService.h"
 #include "core/logging/LoggerConfiguration.h"
-#include "core/FlowConfiguration.h"
+#include "AWSCredentialsProvider.h"
 
 namespace org {
 namespace apache {
@@ -45,17 +38,17 @@ namespace controllers {
 
 class AWSCredentialsService : public core::controller::ControllerService {
  public:
-  static core::Property AccessKey;
-  static core::Property SecretKey;
+  static const core::Property UseDefaultCredentials;
+  static const core::Property AccessKey;
+  static const core::Property SecretKey;
+  static const core::Property CredentialsFile;
 
   explicit AWSCredentialsService(const std::string &name, const minifi::utils::Identifier& uuid = {})
-      : ControllerService(name, uuid),
-        logger_(logging::LoggerFactory<AWSCredentialsService>::getLogger()) {
+      : ControllerService(name, uuid) {
   }
 
   explicit AWSCredentialsService(const std::string &name, const std::shared_ptr<Configure> &configuration)
-      : ControllerService(name),
-        logger_(logging::LoggerFactory<AWSCredentialsService>::getLogger()) {
+      : ControllerService(name) {
   }
 
   void initialize() override;
@@ -74,15 +67,17 @@ class AWSCredentialsService : public core::controller::ControllerService {
   void onEnable() override;
 
   Aws::Auth::AWSCredentials getAWSCredentials() {
-    return awsCredentials;
+    return aws_credentials_;
   }
 
  private:
   const utils::AWSInitializer& AWS_INITIALIZER = utils::AWSInitializer::get();
-  std::string s3Ack, s3Secret;
-  Aws::Auth::AWSCredentials awsCredentials;
-  Aws::Client::ClientConfiguration client_config_;
-  std::shared_ptr<logging::Logger> logger_;
+  std::string access_key_;
+  std::string secret_key_;
+  std::string credentials_file_;
+  bool use_default_credentials_ = false;
+  Aws::Auth::AWSCredentials aws_credentials_;
+  AWSCredentialsProvider aws_credentials_provider_;
 };
 
 REGISTER_RESOURCE(AWSCredentialsService, "AWS Credentials Management Service");

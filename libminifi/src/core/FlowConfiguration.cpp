@@ -67,33 +67,23 @@ std::shared_ptr<core::Processor> FlowConfiguration::createProvenanceReportTask()
   return processor;
 }
 
-std::unique_ptr<core::ProcessGroup> FlowConfiguration::updateFromPayload(const std::string &source, const std::string &yamlConfigPayload) {
+std::unique_ptr<core::ProcessGroup> FlowConfiguration::updateFromPayload(const std::string& url, const std::string& yamlConfigPayload) {
   auto old_services = controller_services_;
   auto old_provider = service_provider_;
   controller_services_ = std::make_shared<core::controller::ControllerServiceMap>();
   service_provider_ = std::make_shared<core::controller::StandardControllerServiceProvider>(controller_services_, nullptr, configuration_);
   auto payload = getRootFromPayload(yamlConfigPayload);
-  if (!source.empty() && payload != nullptr) {
-    std::string host, protocol, path, query, url = source;
-    int port = -1;
-    utils::parse_url(&url, &host, &port, &protocol, &path, &query);
-
+  if (!url.empty() && payload != nullptr) {
     std::string flow_id, bucket_id;
-    auto path_split = utils::StringUtils::split(path, "/");
-    for (size_t i = 0; i < path_split.size(); i++) {
-      const std::string &str = path_split.at(i);
-      if (str == "flows") {
-        if (i + 1 < path_split.size()) {
-          flow_id = path_split.at(i + 1);
-          i++;
-        }
-      }
-
-      if (str == "bucket") {
-        if (i + 1 < path_split.size()) {
-          bucket_id = path_split.at(i + 1);
-          i++;
-        }
+    auto path_split = utils::StringUtils::split(url, "/");
+    // Registry API docs: nifi.apache.org/docs/nifi-registry-docs/rest-api/index.html
+    // GET /buckets/{bucketId}/flows/{flowId}: Gets a flow
+    const auto bucket_token_found = std::find(path_split.cbegin(), path_split.cend(), "buckets");
+    if (bucket_token_found != path_split.cend() && std::next(bucket_token_found) != path_split.cend()) {
+      bucket_id = *std::next(bucket_token_found);
+      const auto flows_token_found = std::find(std::next(bucket_token_found, 2), path_split.cend(), "flows");
+      if (flows_token_found != path_split.cend() && std::next(flows_token_found) != path_split.cend()) {
+        flow_id = *std::next(flows_token_found);
       }
     }
     flow_version_->setFlowVersion(url, bucket_id, flow_id);
@@ -102,6 +92,27 @@ std::unique_ptr<core::ProcessGroup> FlowConfiguration::updateFromPayload(const s
     service_provider_ = old_provider;
   }
   return payload;
+}
+
+bool FlowConfiguration::persist(const std::string &configuration) {
+  if (!config_path_) {
+    logger_->log_error("No flow configuration path is specified, cannot persist changes.");
+    return false;
+  }
+
+  std::string config_file_backup = *config_path_ + ".bak";
+  bool backup_file = (configuration_->get(minifi::Configure::nifi_flow_configuration_file_backup_update)
+                      | utils::flatMap(utils::StringUtils::toBool)).value_or(false);
+
+  if (backup_file) {
+    if (utils::file::FileUtils::copy_file(*config_path_, config_file_backup) != 0) {
+      logger_->log_debug("Cannot copy %s to %s", *config_path_, config_file_backup);
+      return false;
+    }
+    logger_->log_debug("Copy %s to %s", *config_path_, config_file_backup);
+  }
+
+  return filesystem_->write(*config_path_, configuration);
 }
 
 std::unique_ptr<core::ProcessGroup> FlowConfiguration::createRootProcessGroup(std::string name, utils::Identifier & uuid, int version) {

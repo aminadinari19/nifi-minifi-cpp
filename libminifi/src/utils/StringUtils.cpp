@@ -31,7 +31,18 @@ bool StringUtils::StringToBool(std::string input, bool &output) {
   return output;
 }
 
-std::string StringUtils::trim(std::string s) {
+utils::optional<bool> StringUtils::toBool(const std::string& str) {
+  std::string trimmed = trim(str);
+  if (equalsIgnoreCase(trimmed, "true")) {
+    return true;
+  }
+  if (equalsIgnoreCase(trimmed, "false")) {
+    return false;
+  }
+  return {};
+}
+
+std::string StringUtils::trim(const std::string& s) {
   return trimRight(trimLeft(s));
 }
 
@@ -156,7 +167,7 @@ std::string StringUtils::replaceMap(std::string source_string, const std::map<st
   }
 
   std::sort(replacements.begin(), replacements.end(), [](const std::pair<size_t, std::pair<size_t, std::string>> a,
-      const std::pair<size_t, std::pair<size_t, std::string>> &b) {
+                                                         const std::pair<size_t, std::pair<size_t, std::string>> &b) {
     return a.first > b.first;
   });
 
@@ -215,7 +226,7 @@ std::vector<uint8_t> StringUtils::from_hex(const char* hex, size_t hex_length) {
 }
 
 size_t StringUtils::to_hex(char* hex, const uint8_t* data, size_t length, bool uppercase) {
-  if (length > (std::numeric_limits<size_t>::max)() / 2) {
+  if (length > std::numeric_limits<size_t>::max() / 2) {
     throw std::length_error("Data is too large to be hexencoded");
   }
   for (size_t i = 0; i < length; i++) {
@@ -226,7 +237,7 @@ size_t StringUtils::to_hex(char* hex, const uint8_t* data, size_t length, bool u
 }
 
 std::string StringUtils::to_hex(const uint8_t* data, size_t length, bool uppercase /*= false*/) {
-  if (length > ((std::numeric_limits<size_t>::max)() / 2 - 1)) {
+  if (length > (std::numeric_limits<size_t>::max() / 2 - 1)) {
     throw std::length_error("Data is too large to be hexencoded");
   }
   std::vector<char> buf(length * 2);
@@ -312,7 +323,7 @@ std::vector<uint8_t> StringUtils::from_base64(const char* base64, size_t base64_
 }
 
 size_t StringUtils::to_base64(char* base64, const uint8_t* data, size_t length, bool url, bool padded) {
-  if (length > (std::numeric_limits<size_t>::max)() * 3 / 4 - 3) {
+  if (length > std::numeric_limits<size_t>::max() * 3 / 4 - 3) {
     throw std::length_error("Data is too large to be base64 encoded");
   }
 

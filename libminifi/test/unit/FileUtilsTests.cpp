@@ -20,6 +20,7 @@
 #include <vector>
 #include <cstdlib>
 #include <iostream>
+#include <thread>
 #include "../TestBase.h"
 #include "core/Core.h"
 #include "utils/file/FileUtils.h"
@@ -145,9 +146,29 @@ TEST_CASE("TestFileUtils::create_dir", "[TestCreateDir]") {
 
   std::string test_dir_path = std::string(dir) + FileUtils::get_separator() + "random_dir";
 
+  REQUIRE(FileUtils::create_dir(test_dir_path, false) == 0);  // Dir has to be created successfully
+  struct stat buffer;
+  REQUIRE(stat(test_dir_path.c_str(), &buffer) == 0);  // Check if directory exists
+  REQUIRE(FileUtils::create_dir(test_dir_path, false) == 0);  // Dir already exists, success should be returned
+  REQUIRE(FileUtils::delete_dir(test_dir_path, false) == 0);  // Delete should be successful as well
+  test_dir_path += "/random_dir2";
+  REQUIRE(FileUtils::create_dir(test_dir_path, false) != 0);  // Create dir should fail for multiple directories if recursive option is not set
+}
+
+TEST_CASE("TestFileUtils::create_dir recursively", "[TestCreateDir]") {
+  TestController testController;
+
+  char format[] = "/tmp/gt.XXXXXX";
+  auto dir = testController.createTempDirectory(format);
+
+  std::string test_dir_path = std::string(dir) + FileUtils::get_separator() + "random_dir" + FileUtils::get_separator() +
+    "random_dir2" + FileUtils::get_separator() + "random_dir3";
+
   REQUIRE(FileUtils::create_dir(test_dir_path) == 0);  // Dir has to be created successfully
+  struct stat buffer;
+  REQUIRE(stat(test_dir_path.c_str(), &buffer) == 0);  // Check if directory exists
   REQUIRE(FileUtils::create_dir(test_dir_path) == 0);  // Dir already exists, success should be returned
-  REQUIRE(FileUtils::delete_dir(test_dir_path) == 0);  // Delete should be successful as welll
+  REQUIRE(FileUtils::delete_dir(test_dir_path) == 0);  // Delete should be successful as well
 }
 
 TEST_CASE("TestFileUtils::getFullPath", "[TestGetFullPath]") {
@@ -195,6 +216,7 @@ TEST_CASE("FileUtils::last_write_time and last_write_time_point work", "[last_wr
   REQUIRE(FileUtils::last_write_time(test_file) == 0);
   REQUIRE(FileUtils::last_write_time_point(test_file) == (time_point<system_clock, seconds>{}));
 
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
   std::ofstream test_file_stream(test_file);
   test_file_stream << "foo\n";
   test_file_stream.flush();
@@ -210,6 +232,7 @@ TEST_CASE("FileUtils::last_write_time and last_write_time_point work", "[last_wr
   REQUIRE(first_mtime_time_point >= time_point_before_write);
   REQUIRE(first_mtime_time_point <= time_point_after_first_write);
 
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
   test_file_stream << "bar\n";
   test_file_stream.flush();
 
@@ -227,11 +250,15 @@ TEST_CASE("FileUtils::last_write_time and last_write_time_point work", "[last_wr
   REQUIRE(second_mtime_time_point <= time_point_after_second_write);
 
   test_file_stream.close();
+
+  // On Windows it would rarely occur that the last_write_time is off by 1 from the previous check
+#ifndef WIN32
   uint64_t third_mtime = FileUtils::last_write_time(test_file);
   REQUIRE(third_mtime == second_mtime);
 
   time_point<system_clock, seconds> third_mtime_time_point = FileUtils::last_write_time_point(test_file);
   REQUIRE(third_mtime_time_point == second_mtime_time_point);
+#endif
 }
 
 TEST_CASE("FileUtils::file_size works", "[file_size]") {
@@ -350,4 +377,33 @@ TEST_CASE("FileUtils::computeChecksum with large files", "[computeChecksum]") {
   REQUIRE(FileUtils::computeChecksum(another_file, 4097) == CHECKSUM_OF_4097_BYTES);
   REQUIRE(FileUtils::computeChecksum(another_file, 8192) == CHECKSUM_OF_8192_BYTES);
   REQUIRE(FileUtils::computeChecksum(another_file, 9000) == CHECKSUM_OF_8192_BYTES);
+}
+
+#ifndef WIN32
+TEST_CASE("FileUtils::set_permissions", "[TestSetPermissions]") {
+  TestController testController;
+
+  char format[] = "/tmp/gt.XXXXXX";
+  auto dir = testController.createTempDirectory(format);
+  auto path = dir + FileUtils::get_separator() + "test_file.txt";
+  std::ofstream outfile(path, std::ios::out | std::ios::binary);
+
+  REQUIRE(FileUtils::set_permissions(path, 0644) == 0);
+  uint32_t perms;
+  REQUIRE(FileUtils::get_permissions(path, perms));
+  REQUIRE(perms == 0644);
+}
+#endif
+
+TEST_CASE("FileUtils::exists", "[TestExists]") {
+  TestController testController;
+
+  char format[] = "/tmp/gt.XXXXXX";
+  auto dir = testController.createTempDirectory(format);
+  auto path = dir + FileUtils::get_separator() + "test_file.txt";
+  std::ofstream outfile(path, std::ios::out | std::ios::binary);
+  auto invalid_path = dir + FileUtils::get_separator() + "test_file2.txt";
+
+  REQUIRE(FileUtils::exists(path));
+  REQUIRE(!FileUtils::exists(invalid_path));
 }

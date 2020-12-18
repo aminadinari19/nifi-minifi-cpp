@@ -18,6 +18,7 @@
 
 #include "HTTPStream.h"
 
+#include <algorithm>
 #include <fstream>
 #include <vector>
 #include <memory>
@@ -50,7 +51,7 @@ void HttpStream::close() {
 
 void HttpStream::seek(uint64_t offset) {
   // seek is an unnecessary part of this implementatino
-  throw std::exception();
+  throw std::logic_error{"HttpStream::seek is unimplemented"};
 }
 
 // data stream overrides

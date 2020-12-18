@@ -21,7 +21,8 @@
 #include "spdlog/spdlog.h"
 
 void LogTestController::setLevel(const std::string name, spdlog::level::level_enum level) {
-  logger_->log_info("Setting log level for %s to %s", name, spdlog::level::to_str(level));
+  const auto levelView(spdlog::level::to_string_view(level));
+  logger_->log_info("Setting log level for %s to %s", name, std::string(levelView.begin(), levelView.end()));
   std::string adjusted_name = name;
   const std::string clazz = "class ";
   auto haz_clazz = name.find(clazz);
@@ -140,7 +141,7 @@ std::shared_ptr<core::Processor> TestPlan::addProcessor(const std::string &proce
 
   auto ptr = core::ClassLoader::getDefaultClassLoader().instantiate(processor_name, uuid);
   if (nullptr == ptr) {
-    throw std::exception();
+    throw std::runtime_error{fmt::format("Failed to instantiate processor name: {0} uuid: {1}", processor_name, uuid.to_string().c_str())};
   }
   std::shared_ptr<core::Processor> processor = std::static_pointer_cast<core::Processor>(ptr);
 

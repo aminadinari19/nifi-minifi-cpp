@@ -17,9 +17,11 @@
 #pragma once
 
 #include <string>
+#include <utility>
 
 #include "utils/EncryptionUtils.h"
 #include "utils/OptionalUtils.h"
+#include "utils/EncryptionProvider.h"
 
 namespace org {
 namespace apache {
@@ -28,26 +30,25 @@ namespace minifi {
 
 class Decryptor {
  public:
-  explicit Decryptor(const utils::crypto::Bytes& encryption_key);
+  explicit Decryptor(utils::crypto::EncryptionProvider provider)
+      : provider_(std::move(provider)) {}
 
-  static bool isValidEncryptionMarker(const utils::optional<std::string>& encryption_marker);
-  std::string decrypt(const std::string& encrypted_text) const;
+  static bool isValidEncryptionMarker(const utils::optional<std::string>& encryption_marker) {
+    return encryption_marker && *encryption_marker == utils::crypto::EncryptionType::name();
+  }
 
-  static utils::optional<Decryptor> create(const std::string& minifi_home);
+  std::string decrypt(const std::string& encrypted_text) const {
+    return provider_.decrypt(encrypted_text);
+  }
+
+  static utils::optional<Decryptor> create(const std::string& minifi_home) {
+    return utils::crypto::EncryptionProvider::create(minifi_home)
+        | utils::map([](const utils::crypto::EncryptionProvider& provider) {return Decryptor{provider};});
+  }
 
  private:
-  const utils::crypto::Bytes encryption_key_;
+  const utils::crypto::EncryptionProvider provider_;
 };
-
-inline Decryptor::Decryptor(const utils::crypto::Bytes& encryption_key) : encryption_key_(encryption_key) {}
-
-inline bool Decryptor::isValidEncryptionMarker(const utils::optional<std::string>& encryption_marker) {
-  return encryption_marker && *encryption_marker == utils::crypto::EncryptionType::name();
-}
-
-inline std::string Decryptor::decrypt(const std::string& encrypted_text) const {
-  return utils::crypto::decrypt(encrypted_text, encryption_key_);
-}
 
 }  // namespace minifi
 }  // namespace nifi
