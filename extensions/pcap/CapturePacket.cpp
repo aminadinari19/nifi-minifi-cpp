@@ -138,7 +138,7 @@ void CapturePacket::onSchedule(const std::shared_ptr<core::ProcessContext> &cont
 
   value = "";
   if (context->getProperty(CaptureBluetooth.getName(), value)) {
-    utils::StringUtils::StringToBool(value, capture_bluetooth_);
+    capture_bluetooth_ = utils::StringUtils::toBool(value).value_or(false);
   }
 
   core::Property attached_controllers("Network Controllers", "List of network controllers to attach to -- each may be a regex", ".*");

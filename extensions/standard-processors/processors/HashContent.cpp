@@ -63,10 +63,7 @@ void HashContent::onSchedule(core::ProcessContext *context, core::ProcessSession
   algoName_ = (context->getProperty(HashAlgorithm.getName(), value)) ? value : "SHA256";
 
   if (context->getProperty(HashAlgorithm.getName(), value)) {
-    bool bool_value;
-    failOnEmpty_ = utils::StringUtils::StringToBool(value, bool_value) && bool_value;  // Only true in case of valid true string
-  } else {
-    failOnEmpty_ = false;
+    failOnEmpty_ = utils::StringUtils::toBool(value).value_or(false);
   }
 
   std::transform(algoName_.begin(), algoName_.end(), algoName_.begin(), ::toupper);

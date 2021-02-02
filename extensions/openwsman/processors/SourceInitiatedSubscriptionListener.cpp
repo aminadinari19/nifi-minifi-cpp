@@ -785,7 +785,6 @@ void SourceInitiatedSubscriptionListener::initialize() {
 void SourceInitiatedSubscriptionListener::onSchedule(const std::shared_ptr<core::ProcessContext> &context, const std::shared_ptr<core::ProcessSessionFactory> &sessionFactory) {
   std::string ssl_certificate_file;
   std::string ssl_ca_file;
-  bool verify_peer = true;
 
   state_manager_ = context->getStateManager();
   if (state_manager_ == nullptr) {
@@ -807,10 +806,11 @@ void SourceInitiatedSubscriptionListener::onSchedule(const std::shared_ptr<core:
   if (!context->getProperty(SSLCertificateAuthority.getName(), ssl_ca_file)) {
     throw Exception(PROCESSOR_EXCEPTION,"SSL Certificate Authority attribute is missing");
   }
+  bool verify_peer = true;
   if (!context->getProperty(SSLVerifyPeer.getName(), value)) {
-    throw Exception(PROCESSOR_EXCEPTION,"SSL Verify Peer attribute is missing or invalid");
+    throw Exception(PROCESSOR_EXCEPTION, "SSL Verify Peer attribute is missing or invalid");
   } else {
-    utils::StringUtils::StringToBool(value, verify_peer);
+    verify_peer = utils::StringUtils::toBool(value).value_or(true);
   }
   context->getProperty(XPathXmlQuery.getName(), xpath_xml_query_);
   if (!context->getProperty(InitialExistingEventsStrategy.getName(), initial_existing_events_strategy_)) {

@@ -85,8 +85,10 @@ void AbstractMQTTProcessor::onSchedule(const std::shared_ptr<core::ProcessContex
     logger_->log_debug("AbstractMQTTProcessor: PassWord [%s]", passWord_);
   }
   value = "";
-  if (context->getProperty(CleanSession.getName(), value) && !value.empty() &&
-      org::apache::nifi::minifi::utils::StringUtils::StringToBool(value, cleanSession_)) {
+
+  utils::optional<bool> optional_val;
+  if (context->getProperty(CleanSession.getName(), value) && (optional_val = org::apache::nifi::minifi::utils::StringUtils::toBool(value))) {
+    cleanSession_ = optional_val.value();
     logger_->log_debug("AbstractMQTTProcessor: CleanSession [%d]", cleanSession_);
   }
   value = "";
