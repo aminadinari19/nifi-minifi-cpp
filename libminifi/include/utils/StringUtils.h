@@ -79,6 +79,7 @@ class StringUtils {
    * @returns a boolean or an empty value
    */
 
+  static bool StringToBool(std::string input, bool &output);
   static utils::optional<bool> toBool(const std::string& input);
 
   // Trim String utils

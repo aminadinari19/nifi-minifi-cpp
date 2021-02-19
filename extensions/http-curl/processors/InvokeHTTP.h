@@ -44,6 +44,7 @@ namespace processors {
 // InvokeHTTP Class
 class InvokeHTTP : public core::Processor {
  public:
+  friend class invokeHTTPTestAccessor;
 
   // Constructor
   /*!
@@ -137,8 +138,6 @@ class InvokeHTTP : public core::Processor {
   std::string method_;
   // url
   std::string url_;
-  // include date in the header
-  bool date_header_include_{true};
   // attribute to send regex
   std::string attribute_to_send_regex_;
   // connection timeout
@@ -159,8 +158,11 @@ class InvokeHTTP : public core::Processor {
   bool disable_peer_verification_{false};
   utils::HTTPProxy proxy_;
 
+  // include date in the header
+  bool date_header_include_{true};
  private:
   std::shared_ptr<logging::Logger> logger_{logging::LoggerFactory<InvokeHTTP>::getLogger()};
+
 };
 
 REGISTER_RESOURCE(InvokeHTTP,"An HTTP client processor which can interact with a configurable HTTP Endpoint. "

@@ -301,9 +301,9 @@ namespace processors {
             break;
           }
           case opc::OPCNodeDataType::Boolean: {
-            utils::optional<bool> ini_value = utils::StringUtils::toBool(contentstr);
+            utils::optional<bool> contentstr_parsed = utils::StringUtils::toBool(contentstr);
             if (ini_value) {
-              value = ini_value.value();
+              value = contenstr_parsed.value();
               sc = connection_->update_node(targetnode, value);
             } else {
               throw opc::OPCException(GENERAL_EXCEPTION, "Content cannot be converted to bool");
