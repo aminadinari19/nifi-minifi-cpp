@@ -40,6 +40,46 @@
 #include "core/ProcessorNode.h"
 #include "core/reporting/SiteToSiteProvenanceReportingTask.h"
 
+namespace org {
+namespace apache {
+namespace nifi {
+namespace minifi {
+namespace processors {
+
+class PutFileTestAccessor {
+ public:
+  bool onScheduleTest() {
+    TestController testController;
+    LogTestController::getInstance().setDebug<minifi::processors::PutFile>();
+    std::shared_ptr<TestPlan> plan = testController.createPlan();
+
+    std::shared_ptr<core::Processor> putfile = plan->addProcessor("PutFile", "putfile", core::Relationship("success", "description"), true);
+
+
+    std::shared_ptr<core::Processor> processor = std::make_shared<org::apache::nifi::minifi::processors::PutFile>("putfileexample");
+    std::shared_ptr<core::ContentRepository> content_repo = std::make_shared<core::repository::VolatileContentRepository>();
+
+    std::shared_ptr<core::Repository> repo = std::make_shared<TestRepository>();
+
+    std::shared_ptr<core::ProcessorNode> node = std::make_shared<core::ProcessorNode>(processor);
+
+    std::shared_ptr<core::ProcessContext> context = std::make_shared<core::ProcessContext>(node, nullptr, repo, repo, content_repo);
+
+    std::shared_ptr<core::ProcessSessionFactory> factory = std::make_shared<core::ProcessSessionFactory>(context);
+
+    std::shared_ptr<PutFile> put_file;
+    putfile->onSchedule( context, factory );
+    putfile = put_file;
+    return put_file ->try_mkdirs_;
+
+  }
+};
+}
+}
+}
+}
+};
+
 TEST_CASE("Test Creation of PutFile", "[getfileCreate]") {
   TestController testController;
   std::shared_ptr<core::Processor> processor = std::make_shared<org::apache::nifi::minifi::processors::PutFile>("processorname");
@@ -466,5 +506,53 @@ TEST_CASE("TestPutFilePermissions", "[PutFilePermissions]") {
   REQUIRE(perms == 0644);
   REQUIRE(utils::file::FileUtils::get_permissions(putfiledir, perms));
   REQUIRE(perms == 0777);
+}
+
+TEST_CASE("PutFileDirectoryTest","[PutFilePermissions]") {
+  TestController testController;
+
+  LogTestController::getInstance().setDebug<minifi::processors::GetFile>();
+  LogTestController::getInstance().setDebug<TestPlan>();
+  LogTestController::getInstance().setDebug<minifi::processors::PutFile>();
+  LogTestController::getInstance().setDebug<minifi::processors::PutFile::ReadCallback>();
+  LogTestController::getInstance().setDebug<minifi::processors::LogAttribute>();
+
+  std::shared_ptr<TestPlan> plan = testController.createPlan();
+
+  std::shared_ptr<core::Processor> getfile = plan->addProcessor("GetFile", "getfileCreate2");
+
+  std::shared_ptr<core::Processor> putfile = plan->addProcessor("PutFile", "putfile", core::Relationship("success", "description"), true);
+
+  plan->addProcessor("LogAttribute", "logattribute", core::Relationship("success", "description"), true);
+
+  char format[] = "/tmp/gt.XXXXXX";
+  auto dir = testController.createTempDirectory(format);
+  char format2[] = "/tmp/ft.XXXXXX";
+  auto putfiledir = testController.createTempDirectory(format2) + utils::file::FileUtils::get_separator() + "test_dir";
+  plan->setProperty(getfile, org::apache::nifi::minifi::processors::GetFile::Directory.getName(), dir);
+  plan->setProperty(putfile, org::apache::nifi::minifi::processors::PutFile::Directory.getName(), putfiledir);
+  plan->setProperty(putfile,org::apache::nifi::minifi::processors::PutFile::CreateDirs.getName(),"true");
+
+  std::shared_ptr<core::ProcessorNode> node = std::make_shared<core::ProcessorNode>(putfile);
+  std::shared_ptr<TestRepository> repo = std::make_shared<TestRepository>();
+  std::shared_ptr<core::ContentRepository> content_repo = std::make_shared<core::repository::VolatileContentRepository>();
+  std::shared_ptr<core::ProcessContext> context = std::make_shared<core::ProcessContext>(node, nullptr, repo, repo, content_repo);
+  auto session = std::make_shared<core::ProcessSession>(context);
+  std::shared_ptr<core::ProcessSessionFactory> factory = std::make_shared<core::ProcessSessionFactory>(context);
+
+  std::ofstream of(std::string(dir) + utils::file::FileUtils::get_separator() + "tstFile.ext");
+  of.close();
+
+  putfile->onTrigger(context,session);
+  putfile->onSchedule(context,factory);
+
+  plan->runNextProcessor();  // Get
+  plan->runNextProcessor();  // Put
+
+  auto path = std::string(putfiledir) + utils::file::FileUtils::get_separator() + "tstFile.ext";
+
+  REQUIRE(true == org::apache::nifi::minifi::utils::file::exists(putfiledir));
+  REQUIRE(true == org::apache::nifi::minifi::utils::file::exists(path));
+
 }
 #endif
