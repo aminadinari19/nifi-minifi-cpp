@@ -39,7 +39,7 @@
 #include "integration/IntegrationBase.h"
 #include "utils/IntegrationTestUtils.h"
 
-int log_message(const struct mg_connection *conn, const char *message) {
+int log_message(const struct mg_connection* /*conn*/, const char *message) {
   puts(message);
   return 1;
 }
@@ -52,7 +52,7 @@ int ssl_enable(void* /*ssl_context*/, void* /*user_data*/) {
 class HttpResponder : public CivetHandler {
  private:
  public:
-  bool handleGet(CivetServer *server, struct mg_connection *conn) override {
+  bool handleGet(CivetServer* /*server*/, struct mg_connection *conn) override {
     puts("handle get");
     static const std::string site2site_rest_resp = "hi this is a get test";
     mg_printf(conn, "HTTP/1.1 200 OK\r\nContent-Type: "
@@ -113,7 +113,6 @@ int main(int argc, char **argv) {
   if (scheme == "https") {
     std::string cert;
     cert = args.key_dir + "nifi-cert.pem";
-    memset(&callback, 0, sizeof(callback));
     callback.init_ssl = ssl_enable;
     std::string https_port = port + "s";
     callback.log_message = log_message;
@@ -123,7 +122,7 @@ int main(int argc, char **argv) {
   }
   controller->load();
   controller->start();
-  
+
   assert(verifyLogLinePresenceInPollTime(
       std::chrono::seconds(10),
       "key:invokehttp.request.url value:" + url,

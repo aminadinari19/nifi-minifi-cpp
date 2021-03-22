@@ -17,6 +17,9 @@
  */
 
 #include <stdlib.h>
+#ifndef WIN32
+#include <signal.h>
+#endif
 
 #include <algorithm>
 #include <chrono>
@@ -68,8 +71,11 @@ void wait_until(std::atomic<bool>& b) {
 }
 
 TEST_CASE("TestSetPortId", "[S2S1]") {
+#ifndef WIN32
+  signal(SIGPIPE, SIG_IGN);
+#endif
   SiteToSiteCPeer peer;
-  initPeer(&peer, "fake_host", 65433, "");
+  initPeer(&peer, "fake_host", 65433);
   CRawSiteToSiteClient * protocol = (CRawSiteToSiteClient*)malloc(sizeof(CRawSiteToSiteClient));
 
   initRawClient(protocol, &peer);
@@ -109,7 +115,7 @@ void accept_transfer(minifi::io::BaseStream* stream, const std::string& crcstr, 
     s2s_data.request_type_ok = true;
     stream->read(s2s_data.attr_num);
     std::string key, value;
-    for(int i = 0; i < s2s_data.attr_num; ++i) {
+    for(uint32_t i = 0; i < s2s_data.attr_num; ++i) {
       stream->read(key, true);
       stream->read(value, true);
       s2s_data.attributes[key] = value;
@@ -136,7 +142,7 @@ void sunny_path_bootstrap(minifi::io::BaseStream* stream, TransferState& transfe
 
   // just consume handshake data
   bool found_codec = false;
-  int read_len = 0;
+  size_t read_len = 0;
   while(!found_codec) {
     uint8_t handshake_data[1000];
     int actual_len = stream->read(handshake_data+read_len, 1000-read_len);
@@ -167,7 +173,9 @@ void different_version_bootstrap(minifi::io::BaseStream* stream, TransferState& 
 }
 
 TEST_CASE("TestSiteToBootStrap", "[S2S3]") {
-
+#ifndef WIN32
+  signal(SIGPIPE, SIG_IGN);
+#endif
   std::array<std::function<void(minifi::io::BaseStream*, TransferState&, S2SReceivedData&)>, 2> bootstrap_functions =
       {sunny_path_bootstrap, different_version_bootstrap};
 
@@ -185,7 +193,7 @@ TEST_CASE("TestSiteToBootStrap", "[S2S3]") {
 
     auto c_client_thread = [&transfer_state, &c_handshake_ok, &c_transfer_ok, port]() {
       SiteToSiteCPeer cpeer;
-      initPeer(&cpeer, "localhost", port, "");
+      initPeer(&cpeer, "localhost", port);
 
       CRawSiteToSiteClient cprotocol;
 

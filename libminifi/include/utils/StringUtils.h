@@ -33,6 +33,7 @@
 #include <type_traits>
 #include "utils/FailurePolicy.h"
 #include "utils/GeneralUtils.h"
+#include "utils/gsl.h"
 #include "utils/OptionalUtils.h"
 
 #if defined(WIN32) || (__cplusplus >= 201103L && (!defined(__GLIBCXX__) || (__cplusplus >= 201402L) ||  (defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE > 4)))
@@ -97,7 +98,7 @@ class StringUtils {
    * @returns modified string
    */
   static inline std::string trimLeft(std::string s) {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](char c) -> bool { return !isspace(c); }));
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char c) -> bool { return !isspace(c); }));
     return s;
   }
 
@@ -108,22 +109,22 @@ class StringUtils {
    */
 
   static inline std::string trimRight(std::string s) {
-    s.erase(std::find_if(s.rbegin(), s.rend(), [](char c) -> bool { return !isspace(c); }).base(), s.end());
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char c) -> bool { return !isspace(c); }).base(), s.end());
     return s;
   }
 
   /**
    * Compares strings by lower casing them.
    */
-  static inline bool equalsIgnoreCase(const std::string &left, const std::string right) {
-    if (left.length() == right.length()) {
-      return std::equal(right.begin(), right.end(), left.begin(), [](unsigned char lc, unsigned char rc) {return tolower(lc) == tolower(rc);});
-    } else {
+  static inline bool equalsIgnoreCase(const std::string& left, const std::string& right) {
+    if (left.length() != right.length()) {
       return false;
     }
+    return std::equal(right.cbegin(), right.cend(), left.cbegin(), [](unsigned char lc, unsigned char rc) { return std::tolower(lc) == std::tolower(rc); });
   }
 
   static std::vector<std::string> split(const std::string &str, const std::string &delimiter);
+  static std::vector<std::string> splitAndTrim(const std::string &str, const std::string &delimiter);
 
   /**
    * Converts a string to a float
@@ -133,7 +134,7 @@ class StringUtils {
    */
   static bool StringToFloat(std::string input, float &output, FailurePolicy cp = RETURN);
 
-  static std::string replaceEnvironmentVariables(std::string& original_string);
+  static std::string replaceEnvironmentVariables(std::string source_string);
 
   static std::string replaceOne(const std::string &input, const std::string &from, const std::string &to);
 
@@ -158,9 +159,9 @@ class StringUtils {
   }
 
   inline static std::string hex_ascii(const std::string& in) {
-    int len = in.length();
     std::string newString;
-    for (int i = 0; i < len; i += 2) {
+    newString.reserve(in.length() / 2);
+    for (size_t i = 0; i < in.length(); i += 2) {
       std::string sstr = in.substr(i, 2);
       char chr = (char) (int) strtol(sstr.c_str(), 0x00, 16); // NOLINT
       newString.push_back(chr);
@@ -497,7 +498,7 @@ class StringUtils {
 
   static std::pair<size_t, int> countOccurrences(const std::string &str, const std::string &pattern) {
     if (pattern.empty()) {
-      return {str.size(), str.size() + 1};
+      return {str.size(), gsl::narrow<int>(str.size() + 1)};
     }
 
     size_t last_pos = 0;

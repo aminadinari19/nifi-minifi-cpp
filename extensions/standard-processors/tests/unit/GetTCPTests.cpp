@@ -34,10 +34,9 @@
 #include "core/ProcessSession.h"
 #include "core/ProcessorNode.h"
 #include "core/reporting/SiteToSiteProvenanceReportingTask.h"
+#include "utils/gsl.h"
 
 TEST_CASE("GetTCPWithoutEOM", "[GetTCP1]") {
-  utils::Identifier ident = utils::Identifier();
-
   TestController testController;
   std::vector<uint8_t> buffer;
   for (auto c : "Hello World\nHello Warld\nGoodByte Cruel world") {
@@ -111,7 +110,7 @@ TEST_CASE("GetTCPWithoutEOM", "[GetTCP1]") {
   std::shared_ptr<core::ProcessSessionFactory> factory = std::make_shared<core::ProcessSessionFactory>(context);
   processor->onSchedule(context, factory);
   processor->onTrigger(context, session);
-  server.write(buffer, buffer.size());
+  server.write(buffer, gsl::narrow<int>(buffer.size()));
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
   logAttribute->initialize();
@@ -226,7 +225,7 @@ TEST_CASE("GetTCPWithOEM", "[GetTCP2]") {
   std::shared_ptr<core::ProcessSessionFactory> factory = std::make_shared<core::ProcessSessionFactory>(context);
   processor->onSchedule(context, factory);
   processor->onTrigger(context, session);
-  server.write(buffer, buffer.size());
+  server.write(buffer, gsl::narrow<int>(buffer.size()));
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
   logAttribute->initialize();
@@ -350,7 +349,7 @@ TEST_CASE("GetTCPWithOnlyOEM", "[GetTCP3]") {
   std::shared_ptr<core::ProcessSessionFactory> factory = std::make_shared<core::ProcessSessionFactory>(context);
   processor->onSchedule(context, factory);
   processor->onTrigger(context, session);
-  server.write(buffer, buffer.size());
+  server.write(buffer, gsl::narrow<int>(buffer.size()));
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
   logAttribute->initialize();

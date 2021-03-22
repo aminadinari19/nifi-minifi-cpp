@@ -634,7 +634,7 @@ int CollectorInitiatedSubscription::processQueue(const std::shared_ptr<core::Pro
     }
 
     int64_t process(const std::shared_ptr<io::BaseStream>& stream) {
-      return stream->write((uint8_t*)&str_[0], str_.size());
+      return stream->write((uint8_t*)&str_[0], gsl::narrow<int>(str_.size()));
     }
 
     std::string str_;
@@ -647,7 +647,10 @@ int CollectorInitiatedSubscription::processQueue(const std::shared_ptr<core::Pro
   while (renderedXMLs_.try_dequeue(xml)) {
     auto flowFile = session->create();
 
-    session->write(flowFile, &WriteCallback(xml));
+    {
+      WriteCallback wc{ xml };
+      session->write(flowFile, &wc);
+    }
     session->putAttribute(flowFile, core::SpecialFlowAttribute::MIME_TYPE, "application/xml");
     session->getProvenanceReporter()->receive(flowFile, provenanceUri_, getUUIDStr(), "Consume windows event logs", 0);
     session->transfer(flowFile, s_success);

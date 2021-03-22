@@ -23,10 +23,13 @@
 #include <mutex>
 #include <cstring>
 #include <algorithm>
+
 #include "BaseStream.h"
 #include "core/repository/AtomicRepoEntries.h"
 #include "Exception.h"
 #include "core/logging/LoggerConfiguration.h"
+#include "utils/gsl.h"
+
 namespace org {
 namespace apache {
 namespace nifi {
@@ -37,10 +40,10 @@ template<typename T>
 class AtomicEntryStream : public BaseStream {
  public:
   AtomicEntryStream(const T key, core::repository::AtomicEntry<T> *entry)
-      : key_(key),
-        entry_(entry),
+      : length_(0),
         offset_(0),
-        length_(0),
+        key_(key),
+        entry_(entry),
         logger_(logging::LoggerFactory<AtomicEntryStream()>::getLogger()) {
     core::repository::RepoValue<T> *value;
     if (entry_->getValue(key, &value)) {
@@ -137,7 +140,7 @@ int AtomicEntryStream<T>::read(uint8_t *buf, int buflen) {
     core::repository::RepoValue<T> *value;
     if (entry_->getValue(key_, &value)) {
       if (offset_ + len > value->getBufferSize()) {
-        len = value->getBufferSize() - offset_;
+        len = gsl::narrow<int>(value->getBufferSize()) - gsl::narrow<int>(offset_);
         if (len <= 0) {
           entry_->decrementOwnership();
           return 0;

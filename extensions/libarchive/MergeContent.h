@@ -26,6 +26,7 @@
 #include "archive.h"
 #include "core/logging/LoggerConfiguration.h"
 #include "serialization/FlowFileSerializer.h"
+#include "utils/gsl.h"
 
 namespace org {
 namespace apache {
@@ -79,7 +80,7 @@ class BinaryConcatenationMerge : public MergeBin {
     int64_t process(const std::shared_ptr<io::BaseStream>& stream) {
       int64_t ret = 0;
       if (!header_.empty()) {
-        int64_t len = stream->write(reinterpret_cast<uint8_t*>(const_cast<char*>(header_.data())), header_.size());
+        int64_t len = stream->write(reinterpret_cast<uint8_t*>(const_cast<char*>(header_.data())), gsl::narrow<int>(header_.size()));
         if (len < 0)
           return len;
         ret += len;
@@ -87,7 +88,7 @@ class BinaryConcatenationMerge : public MergeBin {
       bool isFirst = true;
       for (auto flow : flows_) {
         if (!isFirst && !demarcator_.empty()) {
-          int64_t len = stream->write(reinterpret_cast<uint8_t*>(const_cast<char*>(demarcator_.data())), demarcator_.size());
+          int64_t len = stream->write(reinterpret_cast<uint8_t*>(const_cast<char*>(demarcator_.data())), gsl::narrow<int>(demarcator_.size()));
           if (len < 0)
             return len;
           ret += len;
@@ -99,7 +100,7 @@ class BinaryConcatenationMerge : public MergeBin {
         isFirst = false;
       }
       if (!footer_.empty()) {
-        int64_t len = stream->write(reinterpret_cast<uint8_t*>(const_cast<char*>(footer_.data())), footer_.size());
+        int64_t len = stream->write(reinterpret_cast<uint8_t*>(const_cast<char*>(footer_.data())), gsl::narrow<int>(footer_.size()));
         if (len < 0)
           return len;
         ret += len;
@@ -131,7 +132,7 @@ class ArchiveMerge {
       int totalWrote = 0;
       int remaining = size;
       while (remaining > 0) {
-        int ret = archive_write_data(arch_, data + totalWrote, remaining);
+        const auto ret = archive_write_data(arch_, data + totalWrote, remaining);
         if (ret < 0) {
           return ret;
         }
@@ -153,8 +154,10 @@ class ArchiveMerge {
   class WriteCallback: public OutputStreamCallback {
    public:
     WriteCallback(std::string merge_type, std::deque<std::shared_ptr<core::FlowFile>> &flows, FlowFileSerializer& serializer)
-        : merge_type_(merge_type), flows_(flows), serializer_(serializer),
-          logger_(logging::LoggerFactory<ArchiveMerge>::getLogger()) {
+        : merge_type_(merge_type),
+          flows_(flows),
+          logger_(logging::LoggerFactory<ArchiveMerge>::getLogger()),
+          serializer_(serializer) {
       size_ = 0;
       stream_ = nullptr;
     }
@@ -167,11 +170,11 @@ class ArchiveMerge {
     std::shared_ptr<logging::Logger> logger_;
     FlowFileSerializer& serializer_;
 
-    static la_ssize_t archive_write(struct archive *arch, void *context, const void *buff, size_t size) {
+    static la_ssize_t archive_write(struct archive* /*arch*/, void *context, const void *buff, size_t size) {
       WriteCallback *callback = (WriteCallback *) context;
       uint8_t* data = reinterpret_cast<uint8_t*>(const_cast<void*>(buff));
       la_ssize_t totalWrote = 0;
-      size_t remaining = size;
+      int remaining = gsl::narrow<int>(size);
       while (remaining > 0) {
         la_ssize_t ret = callback->stream_->write(data + totalWrote, remaining);
         if (ret < 0) {

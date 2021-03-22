@@ -73,8 +73,8 @@ class RetryFlowFileTest {
   }
 
   void retryRoutingTest(
-      optional<std::string> exp_retry_prop_name,
-      optional<int> exp_retry_prop_val,
+      optional<std::string> /*exp_retry_prop_name*/,
+      optional<int> /*exp_retry_prop_val*/,
       core::Relationship exp_outbound_relationship,
       bool exp_penalty_on_flowfile,
       optional<std::string> retry_attr_name_on_flowfile,
@@ -103,7 +103,7 @@ class RetryFlowFileTest {
     std::shared_ptr<core::Processor> putfile_on_failure          = plan_->addProcessor("PutFile", "putfile_on_failure", {success}, false);
     std::shared_ptr<core::Processor> log_attribute               = plan_->addProcessor("LogAttribute", "log", {success}, false);
 
-    retryflowfile->setPenalizationPeriodMsec(0);
+    retryflowfile->setPenalizationPeriod(std::chrono::milliseconds{0});
 
     plan_->addConnection(generate, success, update);
     plan_->addConnection(update, success, retryflowfile);

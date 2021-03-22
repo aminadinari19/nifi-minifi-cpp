@@ -40,9 +40,11 @@ class ProcessorNode : public ConfigurableComponent, public Connectable {
  public:
   explicit ProcessorNode(const std::shared_ptr<Connectable> &processor);
 
-  explicit ProcessorNode(const ProcessorNode &other);
+  ProcessorNode(const ProcessorNode &other) = delete;
+  ProcessorNode(ProcessorNode &&other) = delete;
 
-  explicit ProcessorNode(const ProcessorNode &&other);
+  ProcessorNode& operator=(const ProcessorNode &other) = delete;
+  ProcessorNode& operator=(ProcessorNode &&other) = delete;
 
   /**
    * Get property using the provided name.
@@ -215,9 +217,8 @@ class ProcessorNode : public ConfigurableComponent, public Connectable {
     processor_->setUUID(uuid);
   }
 
-// Get Processor penalization period in MilliSecond
-  uint64_t getPenalizationPeriodMsec(void) {
-    return processor_->getPenalizationPeriodMsec();
+  std::chrono::milliseconds getPenalizationPeriod() {
+    return processor_->getPenalizationPeriod();
   }
 
   /**

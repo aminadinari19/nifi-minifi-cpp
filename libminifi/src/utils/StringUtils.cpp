@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <limits>
+
 #include "utils/StringUtils.h"
 
 #include "utils/Environment.h"
@@ -46,8 +48,13 @@ std::string StringUtils::trim(const std::string& s) {
   return trimRight(trimLeft(s));
 }
 
-std::vector<std::string> StringUtils::split(const std::string &str, const std::string &delimiter) {
+template<typename Fun>
+std::vector<std::string> split_transformed(const std::string& str, const std::string& delimiter, Fun transformation) {
   std::vector<std::string> result;
+  if (delimiter.empty()) {
+    std::transform(str.begin(), str.end(), std::back_inserter(result), [&] (const char c) { return transformation(std::string{c}); });
+    return result;
+  }
   auto curr = str.begin();
   auto end = str.end();
   auto is_func = [delimiter](int s) {
@@ -59,11 +66,19 @@ std::vector<std::string> StringUtils::split(const std::string &str, const std::s
       break;
     }
     auto next = std::find_if(curr, end, is_func);
-    result.push_back(std::string(curr, next));
+    result.push_back(transformation(std::string(curr, next)));
     curr = next;
   }
 
   return result;
+}
+
+std::vector<std::string> StringUtils::split(const std::string& str, const std::string& delimiter) {
+  return split_transformed(str, delimiter, identity{});
+}
+
+std::vector<std::string> StringUtils::splitAndTrim(const std::string& str, const std::string& delimiter) {
+  return split_transformed(str, delimiter, trim);
 }
 
 bool StringUtils::StringToFloat(std::string input, float &output, FailurePolicy cp /*= RETURN*/) {
@@ -94,37 +109,36 @@ bool StringUtils::StringToFloat(std::string input, float &output, FailurePolicy 
   return true;
 }
 
-std::string StringUtils::replaceEnvironmentVariables(std::string& original_string) {
-  int32_t beg_seq = 0;
-  int32_t end_seq = 0;
-  std::string source_string = original_string;
+std::string StringUtils::replaceEnvironmentVariables(std::string source_string) {
+  std::string::size_type beg_seq = 0;
+  std::string::size_type end_seq = 0;
   do {
     beg_seq = source_string.find("${", beg_seq);
+    if (beg_seq == std::string::npos) {
+      break;
+    }
     if (beg_seq > 0 && source_string.at(beg_seq - 1) == '\\') {
       beg_seq += 2;
       continue;
     }
-    if (beg_seq < 0)
-      break;
     end_seq = source_string.find("}", beg_seq + 2);
-    if (end_seq < 0)
+    if (end_seq == std::string::npos) {
       break;
-    if (end_seq - (beg_seq + 2) < 0) {
+    }
+    if (end_seq <= beg_seq + 2) {
       beg_seq += 2;
       continue;
     }
-    const std::string env_field = source_string.substr(beg_seq + 2, end_seq - (beg_seq + 2));
-    const std::string env_field_wrapped = source_string.substr(beg_seq, end_seq + 1);
-    if (env_field.empty()) {
-      continue;
-    }
+    auto env_var_length = end_seq - (beg_seq + 2);
+    const std::string env_var = source_string.substr(beg_seq + 2, env_var_length);
+    const std::string env_var_wrapped = source_string.substr(beg_seq, env_var_length + 3);
 
     std::string env_value;
-    std::tie(std::ignore, env_value) = utils::Environment::getEnvironmentVariable(env_field.c_str());
+    std::tie(std::ignore, env_value) = utils::Environment::getEnvironmentVariable(env_var.c_str());
 
-    source_string = replaceAll(source_string, env_field_wrapped, env_value);
+    source_string = replaceAll(source_string, env_var_wrapped, env_value);
     beg_seq = 0;  // restart
-  } while (beg_seq >= 0);
+  } while (beg_seq < source_string.size());
 
   source_string = replaceAll(source_string, "\\$", "$");
 
@@ -294,6 +308,7 @@ bool StringUtils::from_base64(uint8_t* data, size_t* data_length, const char* ba
       return false;
     case 2:
       digits[2] = 0x00;
+      // fall through
     case 3: {
       digits[3] = 0x00;
 

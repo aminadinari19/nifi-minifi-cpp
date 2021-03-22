@@ -58,7 +58,7 @@ bool ConsumeMQTT::enqueueReceiveMQTTMsg(MQTTClient_message *message) {
     logger_->log_warn("MQTT queue full");
     return false;
   } else {
-    if (message->payloadlen > maxSegSize_)
+    if (gsl::narrow<uint64_t>(message->payloadlen) > maxSegSize_)
       message->payloadlen = maxSegSize_;
     queue_.enqueue(message);
     logger_->log_debug("enqueue MQTT message length %d", message->payloadlen);
@@ -82,7 +82,7 @@ void ConsumeMQTT::onSchedule(const std::shared_ptr<core::ProcessContext> &contex
   }
 }
 
-void ConsumeMQTT::onTrigger(const std::shared_ptr<core::ProcessContext> &context, const std::shared_ptr<core::ProcessSession> &session) {
+void ConsumeMQTT::onTrigger(const std::shared_ptr<core::ProcessContext>& /*context*/, const std::shared_ptr<core::ProcessSession> &session) {
   // reconnect if necessary
   if(!reconnect()) {
     yield();

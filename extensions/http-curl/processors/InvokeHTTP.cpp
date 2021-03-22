@@ -45,6 +45,7 @@
 #include "io/BufferStream.h"
 #include "io/StreamFactory.h"
 #include "ResourceClaim.h"
+#include "utils/gsl.h"
 #include "utils/StringUtils.h"
 
 namespace org {
@@ -166,7 +167,7 @@ bool getTimeMSFromString(const std::string& propertyName, uint64_t& valInt) {
       && core::Property::ConvertTimeUnitToMS(valInt, unit, valInt);
 }
 
-void InvokeHTTP::onSchedule(const std::shared_ptr<core::ProcessContext> &context, const std::shared_ptr<core::ProcessSessionFactory> &sessionFactory) {
+void InvokeHTTP::onSchedule(const std::shared_ptr<core::ProcessContext> &context, const std::shared_ptr<core::ProcessSessionFactory>& /*sessionFactory*/) {
   if (!context->getProperty(Method.getName(), method_)) {
     logger_->log_debug("%s attribute is missing, so default value of %s will be used", Method.getName(), Method.getValue());
     return;
@@ -380,7 +381,7 @@ void InvokeHTTP::onTrigger(const std::shared_ptr<core::ProcessContext> &context,
         response_flow->addAttribute(STATUS_MESSAGE, response_headers.at(0));
       response_flow->addAttribute(REQUEST_URL, url);
       response_flow->addAttribute(TRANSACTION_ID, tx_id);
-      io::BufferStream stream((const uint8_t*) response_body.data(), response_body.size());
+      io::BufferStream stream((const uint8_t*) response_body.data(), gsl::narrow<unsigned int>(response_body.size()));
       // need an import from the data stream.
       session->importFrom(stream, response_flow);
     }

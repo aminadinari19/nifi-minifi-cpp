@@ -41,36 +41,6 @@
 #include "processors/LogAttribute.h"
 #include "utils/gsl.h"
 
-namespace org {
-namespace apache {
-namespace nifi {
-namespace minifi {
-namespace processors{
-
-class invokeHTTPTestAccessor{
- public:
-  static bool onScheduleTest(std::shared_ptr<org::apache::nifi::minifi::processors::InvokeHTTP> invoke_http)
-  {
-    std::shared_ptr<core::ContentRepository> content_repo = std::make_shared<core::repository::VolatileContentRepository>();
-    LogTestController::getInstance().setInfo<org::apache::nifi::minifi::processors::InvokeHTTP>();
-    std::shared_ptr<TestRepository> repo = std::make_shared<TestRepository>();
-    std::shared_ptr<core::ProcessorNode> node2 = std::make_shared<core::ProcessorNode>(invoke_http);
-    std::shared_ptr<core::ProcessContext> context = std::make_shared<core::ProcessContext>(node2, nullptr, repo, repo, content_repo);
-    std::shared_ptr<core::ProcessSessionFactory> factory = std::make_shared<core::ProcessSessionFactory>(context);
-
-    invoke_http->onSchedule(context, factory);
-    return invoke_http->date_header_include_;
-
-  }
-};
-
-}
-}
-}
-}
-}
-
-
 TEST_CASE("HTTPTestsWithNoResourceClaimPOST", "[httptest1]") {
   TestController testController;
   std::shared_ptr<core::ContentRepository> content_repo = std::make_shared<core::repository::VolatileContentRepository>();
@@ -137,7 +107,7 @@ TEST_CASE("HTTPTestsWithNoResourceClaimPOST", "[httptest1]") {
   std::shared_ptr<core::FlowFile> record;
   listenhttp->setScheduledState(core::ScheduledState::RUNNING);
   listenhttp->onSchedule(context, factory);
-  /*listenhttp->onTrigger(context, session);
+  listenhttp->onTrigger(context, session);
 
   invokehttp->incrementActiveTasks();
   invokehttp->setScheduledState(core::ScheduledState::RUNNING);
@@ -175,7 +145,7 @@ TEST_CASE("HTTPTestsWithNoResourceClaimPOST", "[httptest1]") {
   LogTestController::getInstance().reset();*/
 }
 
-/*class CallBack : public minifi::OutputStreamCallback {
+class CallBack : public minifi::OutputStreamCallback {
  public:
   CallBack() {
   }
@@ -183,7 +153,7 @@ TEST_CASE("HTTPTestsWithNoResourceClaimPOST", "[httptest1]") {
   }
   virtual int64_t process(const std::shared_ptr<minifi::io::BaseStream>& stream) {
     // leaving the typo for posterity sake
-    std::string st = "we're gonna write some test stuff";
+    std::string st = "we're gnna write some test stuff";
     return stream->write(reinterpret_cast<uint8_t*>(const_cast<char*>(st.c_str())), gsl::narrow<int>(st.length()));
   }
 };
@@ -340,13 +310,3 @@ TEST_CASE("HTTPTestsPostNoResourceClaim", "[httptest1]") {
   REQUIRE(true == LogTestController::getInstance().contains("exiting because method is POST"));
   LogTestController::getInstance().reset();
 }
-
-TEST_CASE("HTTPpropertiesTest","[httptest1]")
-{
-  TestController testController;
-  std::shared_ptr<TestPlan> plan = testController.createPlan();
-  std::shared_ptr<core::Processor> invokehttp = plan->addProcessor("InvokeHTTP", "invokehttp", core::Relationship("success", "description"), true);
-  std::shared_ptr<org::apache::nifi::minifi::processors::InvokeHTTP> invoke_http;
-
-  REQUIRE(org::apache::nifi::minifi::processors::invokeHTTPTestAccessor::onScheduleTest(invoke_http) == true);
-}*/

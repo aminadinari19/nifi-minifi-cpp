@@ -48,10 +48,10 @@ ProcessGroup::ProcessGroup(ProcessGroupType type, const std::string& name, const
 
 ProcessGroup::ProcessGroup(ProcessGroupType type, const std::string& name, const utils::Identifier& uuid, int version, ProcessGroup *parent)
     : CoreComponent(name, uuid, id_generator_),
-      logger_(logging::LoggerFactory<ProcessGroup>::getLogger()),
-      type_(type),
       config_version_(version),
-      parent_process_group_(parent) {
+      type_(type),
+      parent_process_group_(parent),
+      logger_(logging::LoggerFactory<ProcessGroup>::getLogger()) {
   yield_period_msec_ = 0;
 
   if (parent_process_group_ != 0) {
@@ -67,10 +67,10 @@ ProcessGroup::ProcessGroup(ProcessGroupType type, const std::string& name, const
 
 ProcessGroup::ProcessGroup(ProcessGroupType type, const std::string& name)
     : CoreComponent(name, {}, id_generator_),
-      logger_(logging::LoggerFactory<ProcessGroup>::getLogger()),
-      type_(type),
       config_version_(0),
-      parent_process_group_(0) {
+      type_(type),
+      parent_process_group_(0),
+      logger_(logging::LoggerFactory<ProcessGroup>::getLogger()) {
   yield_period_msec_ = 0;
   onschedule_retry_msec_ = ONSCHEDULE_RETRY_INTERVAL;
   transmitting_ = false;
@@ -272,7 +272,7 @@ std::shared_ptr<Processor> ProcessGroup::findProcessorByName(const std::string &
   return findProcessor(name_matches);
 }
 
-void ProcessGroup::addControllerService(const std::string &nodeId, std::shared_ptr<core::controller::ControllerServiceNode> &node) {
+void ProcessGroup::addControllerService(const std::string &nodeId, const std::shared_ptr<core::controller::ControllerServiceNode> &node) {
   controller_service_map_.put(nodeId, node);
 }
 
@@ -352,11 +352,13 @@ void ProcessGroup::addConnection(const std::shared_ptr<Connection>& connection) 
     connections_.insert(connection);
     logger_->log_debug("Add connection %s into process group %s", connection->getName(), name_);
     std::shared_ptr<Processor> source = this->findProcessorById(connection->getSourceUUID());
-    if (source)
+    if (source) {
       source->addConnection(connection);
+    }
     std::shared_ptr<Processor> destination = this->findProcessorById(connection->getDestinationUUID());
-    if (destination && destination != source)
+    if (destination && destination != source) {
       destination->addConnection(connection);
+    }
   }
 }
 

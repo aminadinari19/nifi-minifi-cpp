@@ -75,7 +75,7 @@ core::Property SourceInitiatedSubscriptionListener::ListenHostname(
         ->isRequired(true)->build());
 core::Property SourceInitiatedSubscriptionListener::ListenPort(
     core::PropertyBuilder::createProperty("Listen Port")->withDescription("The port to listen on.")
-        ->isRequired(true)->withDefaultValue<int64_t>(5986, core::StandardValidators::LISTEN_PORT_VALIDATOR())->build());
+        ->isRequired(true)->withDefaultValue<int64_t>(5986, core::StandardValidators::get().LISTEN_PORT_VALIDATOR)->build());
 core::Property SourceInitiatedSubscriptionListener::SubscriptionManagerPath(
     core::PropertyBuilder::createProperty("Subscription Manager Path")->withDescription("The URI path that will be used for the WEC Subscription Manager endpoint.")
         ->isRequired(true)->withDefaultValue("/wsman/SubscriptionManager/WEC")->build());
@@ -249,11 +249,11 @@ bool SourceInitiatedSubscriptionListener::loadState() {
 
 std::string SourceInitiatedSubscriptionListener::Handler::millisecondsToXsdDuration(int64_t milliseconds) {
   char buf[1024];
-  snprintf(buf, sizeof(buf), "PT%lld.%03lldS", milliseconds / 1000, milliseconds % 1000);
+  snprintf(buf, sizeof(buf), "PT%" PRId64 ".%03" PRId64 "S", milliseconds / 1000, milliseconds % 1000);
   return buf;
 }
 
-bool SourceInitiatedSubscriptionListener::Handler::handlePost(CivetServer* server, struct mg_connection* conn) {
+bool SourceInitiatedSubscriptionListener::Handler::handlePost(CivetServer* /*server*/, struct mg_connection* conn) {
   const struct mg_request_info* req_info = mg_get_request_info(conn);
   if (req_info == nullptr) {
     processor_.logger_->log_error("Failed to get request info");
@@ -563,7 +563,7 @@ bool SourceInitiatedSubscriptionListener::Handler::handleSubscriptionManager(str
     ws_xml_add_child(subscribe_node, XML_NS_EVENTING, WSEVENT_EXPIRES, millisecondsToXsdDuration(processor_.subscription_expiration_interval_).c_str());
 
     // Body/Filter
-    WsXmlNodeH filter_node = ws_xml_add_child(subscribe_node, XML_NS_WS_MAN, WSM_FILTER, processor_.xpath_xml_query_.c_str());
+    ws_xml_add_child(subscribe_node, XML_NS_WS_MAN, WSM_FILTER, processor_.xpath_xml_query_.c_str());
     // ws_xml_add_node_attr(filter_node, nullptr, "Dialect", "http://schemas.microsoft.com/win/2004/08/events/eventquery");
 
     // Body/Bookmark
@@ -636,7 +636,7 @@ int SourceInitiatedSubscriptionListener::Handler::enumerateEventCallback(WsXmlNo
     WriteCallback callback(text);
     session->write(flow_file, &callback);
 
-    session->putAttribute(flow_file, FlowAttributeKey(MIME_TYPE), "application/xml");
+    session->putAttribute(flow_file, core::SpecialFlowAttribute::MIME_TYPE, "application/xml");
     flow_file->addAttribute(ATTRIBUTE_WEF_REMOTE_MACHINEID, machine_id);
     flow_file->addAttribute(ATTRIBUTE_WEF_REMOTE_IP, remote_ip);
 
@@ -684,7 +684,6 @@ bool SourceInitiatedSubscriptionListener::Handler::handleSubscriptions(struct mg
       processor_.logger_->log_error("Received malformed Events request on %s from %s (%s), Events missing", endpoint.c_str(), machine_id.c_str(), remote_ip.c_str());
       return false;
     }
-    const struct mg_request_info* req_info = mg_get_request_info(conn);
     // Enumare Body/Events/Event nodes
     auto session = processor_.session_factory_->createSession();
     std::tuple<std::shared_ptr<core::ProcessSession>, std::shared_ptr<logging::Logger>, std::string, std::string> callback_args =
@@ -750,7 +749,7 @@ bool SourceInitiatedSubscriptionListener::Handler::handleSubscriptions(struct mg
   return true;
 }
 
-void SourceInitiatedSubscriptionListener::onTrigger(const std::shared_ptr<core::ProcessContext> &context, const std::shared_ptr<core::ProcessSession> &session) {
+void SourceInitiatedSubscriptionListener::onTrigger(const std::shared_ptr<core::ProcessContext>& /*context*/, const std::shared_ptr<core::ProcessSession>& /*session*/) {
   logger_->log_trace("SourceInitiatedSubscriptionListener onTrigger called");
 }
 

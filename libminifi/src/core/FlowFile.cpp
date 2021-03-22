@@ -38,14 +38,17 @@ std::shared_ptr<logging::Logger> FlowFile::logger_ = logging::LoggerFactory<Flow
 
 FlowFile::FlowFile()
     : CoreComponent("FlowFile"),
-      size_(0),
       stored(false),
-      offset_(0),
-      last_queue_date_(0),
-      penaltyExpiration_ms_(0),
+      marked_delete_(false),
+      entry_date_(0),
       event_time_(0),
-      claim_(nullptr),
-      marked_delete_(false) {
+      lineage_start_date_(0),
+      last_queue_date_(0),
+      size_(0),
+      id_(0),
+      offset_(0),
+      to_be_processed_after_(std::chrono::steady_clock::now()),
+      claim_(nullptr) {
   id_ = numeric_id_generator_->generateId();
   entry_date_ = utils::timeutils::getTimeMillis();
   event_time_ = entry_date_;
@@ -61,7 +64,7 @@ FlowFile& FlowFile::operator=(const FlowFile& other) {
   lineage_Identifiers_ = other.lineage_Identifiers_;
   last_queue_date_ = other.last_queue_date_;
   size_ = other.size_;
-  penaltyExpiration_ms_ = other.penaltyExpiration_ms_;
+  to_be_processed_after_ = other.to_be_processed_after_;
   attributes_ = other.attributes_;
   claim_ = other.claim_;
   connection_ = other.connection_;
@@ -142,14 +145,21 @@ std::vector<utils::Identifier> &FlowFile::getlineageIdentifiers() {
   return lineage_Identifiers_;
 }
 
-bool FlowFile::getAttribute(std::string key, std::string& value) const {
-  auto it = attributes_.find(key);
-  if (it != attributes_.end()) {
-    value = it->second;
-    return true;
-  } else {
+bool FlowFile::getAttribute(const std::string& key, std::string& value) const {
+  const auto attribute = getAttribute(key);
+  if (!attribute) {
     return false;
   }
+  value = attribute.value();
+  return true;
+}
+
+utils::optional<std::string> FlowFile::getAttribute(const std::string& key) const {
+  auto it = attributes_.find(key);
+  if (it != attributes_.end()) {
+    return it->second;
+  }
+  return utils::nullopt;
 }
 
 // Get Size

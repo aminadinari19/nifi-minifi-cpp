@@ -50,12 +50,12 @@ namespace c2 {
 
 #define REQUIRE_VALID(x) \
   if (-1 == x){ \
-    return minifi::c2::C2Payload(payload.getOperation(), state::UpdateState::READ_ERROR, true); \
+    return minifi::c2::C2Payload(payload.getOperation(), state::UpdateState::READ_ERROR); \
   }
 
 #define REQUIRE_SIZE_IF(y,x) \
   if (y != x){ \
-    return minifi::c2::C2Payload(payload.getOperation(), state::UpdateState::READ_ERROR, true); \
+    return minifi::c2::C2Payload(payload.getOperation(), state::UpdateState::READ_ERROR); \
   }
 
 /**
@@ -76,11 +76,11 @@ class CoapProtocol : public minifi::c2::RESTSender {
    */
   minifi::c2::C2Payload consumePayload(const std::string &url, const minifi::c2::C2Payload &payload, minifi::c2::Direction direction, bool async) override;
 
-  minifi::c2::C2Payload consumePayload(const minifi::c2::C2Payload &payload, minifi::c2::Direction direction, bool async) override {
+  minifi::c2::C2Payload consumePayload(const minifi::c2::C2Payload &payload, minifi::c2::Direction /*direction*/, bool /*async*/) override {
       return serialize(payload);
   }
 
-  void update(const std::shared_ptr<Configure> &configure) override {
+  void update(const std::shared_ptr<Configure>& /*configure*/) override {
     // no op.
   }
 
@@ -97,6 +97,7 @@ class CoapProtocol : public minifi::c2::RESTSender {
     return response.getCode() == COAP_RESPONSE_400 && !memcmp(response.getData(), REGISTRATION_MSG, response.getSize());
   }
 
+  using minifi::c2::RESTProtocol::getOperation;
   /**
    * Returns the operation for the translated integer
    * @param type input type

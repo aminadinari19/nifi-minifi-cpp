@@ -27,6 +27,8 @@
 
 #include "HTTPCallback.h"
 #include "io/validation.h"
+#include "utils/gsl.h"
+
 namespace org {
 namespace apache {
 namespace nifi {
@@ -49,7 +51,7 @@ void HttpStream::close() {
   http_read_callback_.close();
 }
 
-void HttpStream::seek(uint64_t offset) {
+void HttpStream::seek(uint64_t /*offset*/) {
   // seek is an unnecessary part of this implementatino
   throw std::logic_error{"HttpStream::seek is unimplemented"};
 }
@@ -95,7 +97,7 @@ int HttpStream::read(uint8_t *buf, int buflen) {
         started_ = true;
       }
     }
-    return http_read_callback_.readFully((char*) buf, buflen);
+    return gsl::narrow<int>(http_read_callback_.readFully((char*) buf, buflen));
 
   } else {
     return -1;

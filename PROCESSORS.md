@@ -9,13 +9,16 @@
 - [CapturePacket](#capturepacket)
 - [CaptureRTSPFrame](#capturertspframe)
 - [CompressContent](#compresscontent)
+- [ConsumeKafka](#consumekafka)
 - [ConsumeMQTT](#consumemqtt)
+- [DeleteS3Object](#deletes3object)
 - [ExecuteProcess](#executeprocess)
 - [ExecutePythonProcessor](#executepythonprocessor)
 - [ExecuteSQL](#executesql)
 - [ExecuteScript](#executescript)
 - [ExtractText](#extracttext)
 - [FetchOPCProcessor](#fetchopcprocessor)
+- [FetchS3Object](#fetchs3object)
 - [FetchSFTP](#fetchsftp)
 - [FocusArchiveEntry](#focusarchiveentry)
 - [GenerateFlowFile](#generateflowfile)
@@ -28,6 +31,7 @@
 - [ListSFTP](#listsftp)
 - [ListenHTTP](#listenhttp)
 - [ListenSyslog](#listensyslog)
+- [ListS3](#lists3)
 - [LogAttribute](#logattribute)
 - [ManipulateArchive](#manipulatearchive)
 - [MergeContent](#mergecontent)
@@ -178,6 +182,37 @@ In the list below, the names of required properties appear in bold. Any other pr
 |failure|FlowFiles will be transferred to the failure relationship if they fail to compress/decompress|
 |success|FlowFiles will be transferred to the success relationship after successfully being compressed or decompressed|
 
+## ConsumeKafka
+
+### Description
+
+Consumes messages from Apache Kafka and transform them into MiNiFi FlowFiles. The application should make sure that the processor is triggered at regular intervals, even if no messages are expected, to serve any queued callbacks waiting to be called. Rebalancing can also only happen on trigger.
+### Properties
+
+In the list below, the names of required properties appear in bold. Any other properties (not in bold) are considered optional. The table also indicates any default values, and whether a property supports the NiFi Expression Language.
+
+| Name | Default Value | Allowable Values | Description |
+| - | - | - | - |
+|Duplicate Header Handling|Keep Latest|Comma-separated Merge<br>Keep First<br>Keep Latest<br>|For headers to be added as attributes, this option specifies how to handle cases where multiple headers are present with the same key. For example in case of receiving these two headers: "Accept: text/html" and "Accept: application/xml" and we want to attach the value of "Accept" as a FlowFile attribute:<br/> - "Keep First" attaches: "Accept -> text/html"<br/> - "Keep Latest" attaches: "Accept -> application/xml"<br/> - "Comma-separated Merge" attaches: "Accept -> text/html, application/xml"|
+|**Group ID**|||A Group ID is used to identify consumers that are within the same consumer group. Corresponds to Kafka's 'group.id' property.<br/>**Supports Expression Language: true**|
+|Headers To Add As Attributes|||A comma separated list to match against all message headers. Any message header whose name matches an item from the list will be added to the FlowFile as an Attribute. If not specified, no Header values will be added as FlowFile attributes. The behaviour on when multiple headers of the same name are present is set using the DuplicateHeaderHandling attribute.|
+|**Honor Transactions**|true||Specifies whether or not MiNiFi should honor transactional guarantees when communicating with Kafka. If false, the Processor will use an "isolation level" of read_uncomitted. This means that messages will be received as soon as they are written to Kafka but will be pulled, even if the producer cancels the transactions. If this value is true, MiNiFi will not receive any messages for which the producer's transaction was canceled, but this can result in some latency since the consumer must wait for the producer to finish its entire transaction instead of pulling as the messages become available.|
+|**Kafka Brokers**|localhost:9092||A comma-separated list of known Kafka Brokers in the format <host>:<port>.<br/>**Supports Expression Language: true**|
+|**Key Attribute Encoding**|UTF-8|Hex<br>UTF-8<br>|FlowFiles that are emitted have an attribute named 'kafka.key'. This property dictates how the value of the attribute should be encoded.|
+|Max Poll Records|10000||Specifies the maximum number of records Kafka should return when polling each time the processor is triggered.|
+|**Max Poll Time**|4 seconds||Specifies the maximum amount of time the consumer can use for polling data from the brokers. Polling is a blocking operation, so the upper limit of this value is specified in 4 seconds.|
+|Message Demarcator|||Since KafkaConsumer receives messages in batches, you have an option to output FlowFiles which contains all Kafka messages in a single batch for a given topic and partition and this property allows you to provide a string (interpreted as UTF-8) to use for demarcating apart multiple Kafka messages. This is an optional property and if not provided each Kafka message received will result in a single FlowFile which time it is triggered. <br/>**Supports Expression Language: true**|
+|Message Header Encoding|UTF-8|Hex<br>UTF-8<br>|Any message header that is found on a Kafka message will be added to the outbound FlowFile as an attribute. This property indicates the Character Encoding to use for deserializing the headers.|
+|**Offset Reset**|latest|earliest<br>latest<br>none<br>|Allows you to manage the condition when there is no initial offset in Kafka or if the current offset does not exist any more on the server (e.g. because that data has been deleted). Corresponds to Kafka's 'auto.offset.reset' property.|
+|**Security Protocol**|PLAINTEXT|PLAINTEXT<br>|This property is currently not supported. Protocol used to communicate with brokers. Corresponds to Kafka's 'security.protocol' property.|
+|Session Timeout|60 seconds||Client group session and failure detection timeout. The consumer sends periodic heartbeats to indicate its liveness to the broker. If no hearts are received by the broker for a group member within the session timeout, the broker will remove the consumer from the group and trigger a rebalance. The allowed range is configured with the broker configuration properties group.min.session.timeout.ms and group.max.session.timeout.ms.|
+|**Topic Name Format**|Names|Names<br>Patterns<br>|Specifies whether the Topic(s) provided are a comma separated list of names or a single regular expression.|
+|**Topic Names**|||The name of the Kafka Topic(s) to pull from. Multiple topic names are supported as a comma separated list.<br/>**Supports Expression Language: true**|
+### Properties
+
+| Name | Description |
+| - | - |
+|success|Incoming kafka messages as flowfiles. Depending on the demarcation strategy, this can be one or multiple flowfiles per message.|
 
 ## ConsumeMQTT
 
@@ -206,6 +241,39 @@ In the list below, the names of required properties appear in bold. Any other pr
 | Name | Description |
 | - | - |
 |success|FlowFiles that are sent successfully to the destination are transferred to this relationship|
+
+
+## DeleteS3Object
+
+### Description
+
+Deletes FlowFiles on an Amazon S3 Bucket. If attempting to delete a file that does not exist, FlowFile is routed to success.
+### Properties
+
+In the list below, the names of required properties appear in bold. Any other properties (not in bold) are considered optional. The table also indicates any default values, and whether a property supports the NiFi Expression Language.
+
+| Name | <div style="width:7em">Default Value</div> | <div style="width:8em">Allowable Values</div> | Description |
+| - | - | - | - |
+|Object Key|||The key of the S3 object. If none is given the filename attribute will be used by default.<br/>**Supports Expression Language: true**|
+|**Bucket**|||The S3 bucket<br/>**Supports Expression Language: true**|
+|Access Key|||AWS account access key<br/>**Supports Expression Language: true**|
+|Secret Key|||AWS account secret key<br/>**Supports Expression Language: true**|
+|Credentials File|||Path to a file containing AWS access key and secret key in properties file format. Properties used: accessKey and secretKey|
+|AWS Credentials Provider service|||The name of the AWS Credentials Provider controller service that is used to obtain AWS credentials.|
+|**Region**|us-west-2|af-south-1<br/>ap-east-1<br/>ap-northeast-1<br/>ap-northeast-2<br/>ap-northeast-3<br/>ap-south-1<br/>ap-southeast-1<br/>ap-southeast-2<br/>ca-central-1<br/>cn-north-1<br/>cn-northwest-1<br/>eu-central-1<br/>eu-north-1<br/>eu-south-1<br/>eu-west-1<br/>eu-west-2<br/>eu-west-3<br/>me-south-1<br/>sa-east-1<br/>us-east-1<br/>us-east-2<br/>us-gov-east-1<br/>us-gov-west-1<br/>us-west-1<br/>us-west-2|AWS Region|
+|**Communications Timeout**|30 sec||Sets the timeout of the communication between the AWS server and the client|
+|Endpoint Override URL|||Endpoint URL to use instead of the AWS default including scheme, host, port, and path. The AWS libraries select an endpoint URL based on the AWS region, but this property overrides the selected endpoint URL, allowing use with other S3-compatible endpoints.<br/>**Supports Expression Language: true**|
+|Proxy Host|||Proxy host name or IP<br/>**Supports Expression Language: true**|
+|Proxy Port|||The port number of the proxy host<br/>**Supports Expression Language: true**|
+|Proxy Username|||Username to set when authenticating against proxy<br/>**Supports Expression Language: true**|
+|Proxy Password|||Password to set when authenticating against proxy<br/>**Supports Expression Language: true**|
+|Version|||The Version of the Object to delete<br/>**Supports Expression Language: true**|
+### Relationships
+
+| Name | Description |
+| - | - |
+|failure|FlowFiles are routed to failure relationship|
+|success|FlowFiles are routed to success relationship|
 
 
 ## ExecuteProcess
@@ -353,6 +421,40 @@ In the list below, the names of required properties appear in bold. Any other pr
 | - | - |
 |failure|Retrieved OPC-UA nodes where value cannot be extracted (only if enabled)|
 |success|Successfully retrieved OPC-UA nodes|
+
+
+## FetchS3Object
+
+### Description
+
+Retrieves the contents of an S3 Object and writes it to the content of a FlowFile
+### Properties
+
+In the list below, the names of required properties appear in bold. Any other properties (not in bold) are considered optional. The table also indicates any default values, and whether a property supports the NiFi Expression Language.
+
+| Name | <div style="width:7em">Default Value</div> | <div style="width:8em">Allowable Values</div> | Description |
+| - | - | - | - |
+|Object Key|||The key of the S3 object. If none is given the filename attribute will be used by default.<br/>**Supports Expression Language: true**|
+|**Bucket**|||The S3 bucket<br/>**Supports Expression Language: true**|
+|Access Key|||AWS account access key<br/>**Supports Expression Language: true**|
+|Secret Key|||AWS account secret key<br/>**Supports Expression Language: true**|
+|Credentials File|||Path to a file containing AWS access key and secret key in properties file format. Properties used: accessKey and secretKey|
+|AWS Credentials Provider service|||The name of the AWS Credentials Provider controller service that is used to obtain AWS credentials.|
+|**Region**|us-west-2|af-south-1<br/>ap-east-1<br/>ap-northeast-1<br/>ap-northeast-2<br/>ap-northeast-3<br/>ap-south-1<br/>ap-southeast-1<br/>ap-southeast-2<br/>ca-central-1<br/>cn-north-1<br/>cn-northwest-1<br/>eu-central-1<br/>eu-north-1<br/>eu-south-1<br/>eu-west-1<br/>eu-west-2<br/>eu-west-3<br/>me-south-1<br/>sa-east-1<br/>us-east-1<br/>us-east-2<br/>us-gov-east-1<br/>us-gov-west-1<br/>us-west-1<br/>us-west-2|AWS Region|
+|**Communications Timeout**|30 sec||Sets the timeout of the communication between the AWS server and the client|
+|Endpoint Override URL|||Endpoint URL to use instead of the AWS default including scheme, host, port, and path. The AWS libraries select an endpoint URL based on the AWS region, but this property overrides the selected endpoint URL, allowing use with other S3-compatible endpoints.<br/>**Supports Expression Language: true**|
+|Proxy Host|||Proxy host name or IP<br/>**Supports Expression Language: true**|
+|Proxy Port|||The port number of the proxy host<br/>**Supports Expression Language: true**|
+|Proxy Username|||Username to set when authenticating against proxy<br/>**Supports Expression Language: true**|
+|Proxy Password|||Password to set when authenticating against proxy<br/>**Supports Expression Language: true**|
+|Version|||The Version of the Object to download<br/>**Supports Expression Language: true**|
+|**Requester Pays**|false||If true, indicates that the requester consents to pay any charges associated with retrieving objects from the S3 bucket. This sets the 'x-amz-request-payer' header to 'requester'.|
+### Relationships
+
+| Name | Description |
+| - | - |
+|failure|FlowFiles are routed to failure relationship|
+|success|FlowFiles are routed to success relationship|
 
 
 ## FetchSFTP
@@ -700,6 +802,43 @@ In the list below, the names of required properties appear in bold. Any other pr
 |success|All files are routed to success|
 
 
+## ListS3
+
+### Description
+
+Retrieves a listing of objects from an S3 bucket. For each object that is listed, creates a FlowFile that represents the object so that it can be fetched in conjunction with FetchS3Object.
+### Properties
+
+In the list below, the names of required properties appear in bold. Any other properties (not in bold) are considered optional. The table also indicates any default values, and whether a property supports the NiFi Expression Language.
+
+| Name | Default Value | Allowable Values | Description |
+| - | - | - | - |
+|**Bucket**|||The S3 bucket<br/>**Supports Expression Language: true**|
+|Access Key|||AWS account access key<br/>**Supports Expression Language: true**|
+|Secret Key|||AWS account secret key<br/>**Supports Expression Language: true**|
+|Credentials File|||Path to a file containing AWS access key and secret key in properties file format. Properties used: accessKey and secretKey|
+|AWS Credentials Provider service|||The name of the AWS Credentials Provider controller service that is used to obtain AWS credentials.|
+|**Region**|us-west-2|af-south-1<br/>ap-east-1<br/>ap-northeast-1<br/>ap-northeast-2<br/>ap-northeast-3<br/>ap-south-1<br/>ap-southeast-1<br/>ap-southeast-2<br/>ca-central-1<br/>cn-north-1<br/>cn-northwest-1<br/>eu-central-1<br/>eu-north-1<br/>eu-south-1<br/>eu-west-1<br/>eu-west-2<br/>eu-west-3<br/>me-south-1<br/>sa-east-1<br/>us-east-1<br/>us-east-2<br/>us-gov-east-1<br/>us-gov-west-1<br/>us-west-1<br/>us-west-2|AWS Region|
+|**Communications Timeout**|30 sec||Sets the timeout of the communication between the AWS server and the client|
+|Endpoint Override URL|||Endpoint URL to use instead of the AWS default including scheme, host, port, and path. The AWS libraries select an endpoint URL based on the AWS region, but this property overrides the selected endpoint URL, allowing use with other S3-compatible endpoints.<br/>**Supports Expression Language: true**|
+|Proxy Host|||Proxy host name or IP<br/>**Supports Expression Language: true**|
+|Proxy Port|||The port number of the proxy host<br/>**Supports Expression Language: true**|
+|Proxy Username|||Username to set when authenticating against proxy<br/>**Supports Expression Language: true**|
+|Proxy Password|||Password to set when authenticating against proxy<br/>**Supports Expression Language: true**|
+|Delimiter|||The string used to delimit directories within the bucket. Please consult the AWS documentation for the correct use of this field.|
+|Prefix|||The prefix used to filter the object list. In most cases, it should end with a forward slash ('/').|
+|**Use Versions**|false||Specifies whether to use S3 versions, if applicable. If false, only the latest version of each object will be returned.|
+|**Minimum Object Age**|0 sec||The minimum age that an S3 object must be in order to be considered; any object younger than this amount of time (according to last modification date) will be ignored.|
+|**Write Object Tags**|false||If set to 'true', the tags associated with the S3 object will be written as FlowFile attributes.|
+|**Write User Metadata**|false||If set to 'true', the user defined metadata associated with the S3 object will be added to FlowFile attributes/records.|
+|**Requester Pays**|false||If true, indicates that the requester consents to pay any charges associated with listing the S3 bucket. This sets the 'x-amz-request-payer' header to 'requester'. Note that this setting is only used if Write User Metadata is true.|
+
+### Relationships
+
+| Name | Description |
+| - | - |
+|success|FlowFiles are routed to success relationship|
+
 ## LogAttribute
 
 ### Description
@@ -853,7 +992,6 @@ Supports Expression Language: true (will be evaluated using flow file attributes
 |failure|Any FlowFile that cannot be sent to Kafka will be routed to this Relationship|
 |success|Any FlowFile that is successfully sent to Kafka will be routed to this Relationship|
 
-
 ## PublishMQTT
 
 ### Description
@@ -952,7 +1090,7 @@ Puts FlowFiles to an Amazon S3 Bucket. The upload uses either the PutS3Object me
 
 In the list below, the names of required properties appear in bold. Any other properties (not in bold) are considered optional. The table also indicates any default values, and whether a property supports the NiFi Expression Language.
 
-| Name | Default Value | Allowable Values | Description |
+| Name | <div style="width:7em">Default Value</div> | <div style="width:8em">Allowable Values</div> | Description |
 | - | - | - | - |
 |Object Key|||The key of the S3 object. If none is given the filename attribute will be used by default.<br/>**Supports Expression Language: true**|
 |**Bucket**|||The S3 bucket<br/>**Supports Expression Language: true**|
@@ -964,7 +1102,7 @@ In the list below, the names of required properties appear in bold. Any other pr
 |AWS Credentials Provider service|||The name of the AWS Credentials Provider controller service that is used to obtain AWS credentials.|
 |**Storage Class**|Standard|Standard<br/>ReducedRedundancy<br/>StandardIA<br/>OnezoneIA<br/>IntelligentTiering<br/>Glacier<br/>DeepArchive|AWS S3 Storage Class|
 |**Region**|us-west-2|af-south-1<br/>ap-east-1<br/>ap-northeast-1<br/>ap-northeast-2<br/>ap-northeast-3<br/>ap-south-1<br/>ap-southeast-1<br/>ap-southeast-2<br/>ca-central-1<br/>cn-north-1<br/>cn-northwest-1<br/>eu-central-1<br/>eu-north-1<br/>eu-south-1<br/>eu-west-1<br/>eu-west-2<br/>eu-west-3<br/>me-south-1<br/>sa-east-1<br/>us-east-1<br/>us-east-2<br/>us-gov-east-1<br/>us-gov-west-1<br/>us-west-1<br/>us-west-2|AWS Region|
-|**Communications Timeout**|30 sec|||
+|**Communications Timeout**|30 sec||Sets the timeout of the communication between the AWS server and the client|
 |FullControl User List|||A comma-separated list of Amazon User ID's or E-mail addresses that specifies who should have Full Control for an object.<br/>**Supports Expression Language: true**|
 |Read Permission User List|||A comma-separated list of Amazon User ID's or E-mail addresses that specifies who should have Read Access for an object.<br/>**Supports Expression Language: true**|
 |Read ACL User List|||A comma-separated list of Amazon User ID's or E-mail addresses that specifies who should have permissions to read the Access Control List for an object.<br/>**Supports Expression Language: true**|

@@ -102,13 +102,13 @@ class ProcessContext : public controller::ControllerServiceLookup, public core::
     return getPropertyImp<typename std::common_type<T>::type>(name, value);
   }
 
-  virtual bool getProperty(const Property &property, std::string &value, const std::shared_ptr<FlowFile> &flow_file) {
+  virtual bool getProperty(const Property &property, std::string &value, const std::shared_ptr<FlowFile>& /*flow_file*/) {
     return getProperty(property.getName(), value);
   }
   bool getDynamicProperty(const std::string &name, std::string &value) const {
     return processor_node_->getDynamicProperty(name, value);
   }
-  virtual bool getDynamicProperty(const Property &property, std::string &value, const std::shared_ptr<FlowFile> &flow_file) {
+  virtual bool getDynamicProperty(const Property &property, std::string &value, const std::shared_ptr<FlowFile>& /*flow_file*/) {
     return getDynamicProperty(property.getName(), value);
   }
   std::vector<std::string> getDynamicPropertyKeys() const {
@@ -247,7 +247,7 @@ class ProcessContext : public controller::ControllerServiceLookup, public core::
     auto create_provider = [&](
         const std::string& type,
         const std::string& longType,
-        const std::unordered_map<std::string, std::string>& extraProperties = {}) -> std::shared_ptr<core::CoreComponentStateManagerProvider> {
+        const std::unordered_map<std::string, std::string>& extraProperties) -> std::shared_ptr<core::CoreComponentStateManagerProvider> {
       node = controller_service_provider->createControllerService(type, longType, DefaultStateManagerProviderName, true /*firstTimeAdded*/);
       if (node == nullptr) {
         return nullptr;
@@ -303,7 +303,8 @@ class ProcessContext : public controller::ControllerServiceLookup, public core::
     /* Fall back to volatile memory-backed provider */
     if (preferredType.empty() || preferredType == "UnorderedMapKeyValueStoreService") {
       auto provider = create_provider("UnorderedMapKeyValueStoreService",
-                                      "org.apache.nifi.minifi.controllers.UnorderedMapKeyValueStoreService");
+                                      "org.apache.nifi.minifi.controllers.UnorderedMapKeyValueStoreService",
+                                      {});
       if (provider != nullptr) {
         return provider;
       }

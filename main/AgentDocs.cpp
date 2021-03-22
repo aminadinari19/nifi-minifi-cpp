@@ -44,15 +44,11 @@ namespace minifi {
 namespace docs {
 
 std::string AgentDocs::extractClassName(const std::string &processor) const {
-  auto lastOfIdx = processor.find_last_of(".");
-  if (lastOfIdx != std::string::npos) {
-    lastOfIdx++;  // if a value is found, increment to move beyond the .
-    int nameLength = processor.length() - lastOfIdx;
-    std::string processorName = processor.substr(lastOfIdx, nameLength);
-    return processorName;
+  auto positionOfLastDot = processor.find_last_of(".");
+  if (positionOfLastDot != std::string::npos) {
+    return processor.substr(positionOfLastDot + 1);
   }
   return processor;
-
 }
 
 void AgentDocs::generate(const std::string &docsdir, std::ostream &genStream) {
@@ -129,7 +125,7 @@ void AgentDocs::generate(const std::string &docsdir, std::ostream &genStream) {
 
   std::map<std::string,std::string> fileList;
 
-  auto fileFind = [&fileList,this](const std::string& base_path, const std::string& file) -> bool {
+  auto fileFind = [&fileList](const std::string& base_path, const std::string& file) -> bool {
     if (file.find(".extra") == std::string::npos)
       fileList.insert(std::make_pair(file, base_path + utils::file::FileUtils::get_separator() + file));
     return true;

@@ -17,11 +17,14 @@
  */
 
 #include "DatabaseContentRepository.h"
+
 #include <memory>
 #include <string>
+
 #include "RocksDbStream.h"
 #include "rocksdb/merge_operator.h"
 #include "utils/GeneralUtils.h"
+#include "utils/gsl.h"
 #include "Exception.h"
 
 namespace org {
@@ -84,7 +87,7 @@ void DatabaseContentRepository::Session::commit() {
     if (outStream == nullptr) {
       throw Exception(REPOSITORY_EXCEPTION, "Couldn't open the underlying resource for write: " + resource.first->getContentFullPath());
     }
-    const auto size = resource.second->size();
+    const int size = gsl::narrow<int>(resource.second->size());
     if (outStream->write(const_cast<uint8_t*>(resource.second->getBuffer()), size) != size) {
       throw Exception(REPOSITORY_EXCEPTION, "Failed to write new resource: " + resource.first->getContentFullPath());
     }
@@ -94,7 +97,7 @@ void DatabaseContentRepository::Session::commit() {
     if (outStream == nullptr) {
       throw Exception(REPOSITORY_EXCEPTION, "Couldn't open the underlying resource for append: " + resource.first->getContentFullPath());
     }
-    const auto size = resource.second->size();
+    const int size = gsl::narrow<int>(resource.second->size());
     if (outStream->write(const_cast<uint8_t*>(resource.second->getBuffer()), size) != size) {
       throw Exception(REPOSITORY_EXCEPTION, "Failed to append to resource: " + resource.first->getContentFullPath());
     }
@@ -158,7 +161,7 @@ bool DatabaseContentRepository::remove(const minifi::ResourceClaim &claim) {
   }
 }
 
-std::shared_ptr<io::BaseStream> DatabaseContentRepository::write(const minifi::ResourceClaim& claim, bool append, rocksdb::WriteBatch* batch) {
+std::shared_ptr<io::BaseStream> DatabaseContentRepository::write(const minifi::ResourceClaim& claim, bool /*append*/, rocksdb::WriteBatch* batch) {
   // the traditional approach with these has been to return -1 from the stream; however, since we have the ability here
   // we can simply return a nullptr, which is also valid from the API when this stream is not valid.
   if (!is_valid_ || !db_)

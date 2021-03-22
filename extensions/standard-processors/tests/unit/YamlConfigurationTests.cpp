@@ -19,9 +19,12 @@
 #include <map>
 #include <memory>
 #include "core/repository/VolatileContentRepository.h"
+#include "core/ProcessGroup.h"
 #include "core/RepositoryFactory.h"
 #include "core/yaml/YamlConfiguration.h"
+#include "TailFile.h"
 #include "TestBase.h"
+#include "utils/TestUtils.h"
 
 TEST_CASE("Test YAML Config Processing", "[YamlConfiguration]") {
   TestController test_controller;
@@ -35,105 +38,105 @@ TEST_CASE("Test YAML Config Processing", "[YamlConfiguration]") {
 
   SECTION("loading YAML without optional component IDs works") {
   static const std::string CONFIG_YAML_WITHOUT_IDS = ""
-  "MiNiFi Config Version: 1\n"
-  "Flow Controller:\n"
-  "    name: MiNiFi Flow\n"
-  "    comment:\n"
-  "\n"
-  "Core Properties:\n"
-  "    flow controller graceful shutdown period: 10 sec\n"
-  "    flow service write delay interval: 500 ms\n"
-  "    administrative yield duration: 30 sec\n"
-  "    bored yield duration: 10 millis\n"
-  "\n"
-  "FlowFile Repository:\n"
-  "    partitions: 256\n"
-  "    checkpoint interval: 2 mins\n"
-  "    always sync: false\n"
-  "    Swap:\n"
-  "        threshold: 20000\n"
-  "        in period: 5 sec\n"
-  "        in threads: 1\n"
-  "        out period: 5 sec\n"
-  "        out threads: 4\n"
-  "\n"
-  "Provenance Repository:\n"
-  "    provenance rollover time: 1 min\n"
-  "\n"
-  "Content Repository:\n"
-  "    content claim max appendable size: 10 MB\n"
-  "    content claim max flow files: 100\n"
-  "    always sync: false\n"
-  "\n"
-  "Component Status Repository:\n"
-  "    buffer size: 1440\n"
-  "    snapshot frequency: 1 min\n"
-  "\n"
-  "Security Properties:\n"
-  "    keystore: /tmp/ssl/localhost-ks.jks\n"
-  "    keystore type: JKS\n"
-  "    keystore password: localtest\n"
-  "    key password: localtest\n"
-  "    truststore: /tmp/ssl/localhost-ts.jks\n"
-  "    truststore type: JKS\n"
-  "    truststore password: localtest\n"
-  "    ssl protocol: TLS\n"
-  "    Sensitive Props:\n"
-  "        key:\n"
-  "        algorithm: PBEWITHMD5AND256BITAES-CBC-OPENSSL\n"
-  "        provider: BC\n"
-  "\n"
-  "Processors:\n"
-  "    - name: TailFile\n"
-  "      class: org.apache.nifi.processors.standard.TailFile\n"
-  "      max concurrent tasks: 1\n"
-  "      scheduling strategy: TIMER_DRIVEN\n"
-  "      scheduling period: 1 sec\n"
-  "      penalization period: 30 sec\n"
-  "      yield period: 1 sec\n"
-  "      run duration nanos: 0\n"
-  "      auto-terminated relationships list:\n"
-  "      Properties:\n"
-  "          File to Tail: logs/minifi-app.log\n"
-  "          Rolling Filename Pattern: minifi-app*\n"
-  "          Initial Start Position: Beginning of File\n"
-  "\n"
-  "Connections:\n"
-  "    - name: TailToS2S\n"
-  "      source name: TailFile\n"
-  "      source relationship name: success\n"
-  "      destination name: 8644cbcc-a45c-40e0-964d-5e536e2ada61\n"
-  "      max work queue size: 0\n"
-  "      max work queue data size: 1 MB\n"
-  "      flowfile expiration: 60 sec\n"
-  "      queue prioritizer class: org.apache.nifi.prioritizer.NewestFlowFileFirstPrioritizer\n"
-  "\n"
-  "Remote Processing Groups:\n"
-  "    - name: NiFi Flow\n"
-  "      comment:\n"
-  "      url: https://localhost:8090/nifi\n"
-  "      timeout: 30 secs\n"
-  "      yield period: 10 sec\n"
-  "      Input Ports:\n"
-  "          - id: 8644cbcc-a45c-40e0-964d-5e536e2ada61\n"
-  "            name: tailed log\n"
-  "            comments:\n"
-  "            max concurrent tasks: 1\n"
-  "            use compression: false\n"
-  "\n"
-  "Provenance Reporting:\n"
-  "    comment:\n"
-  "    scheduling strategy: TIMER_DRIVEN\n"
-  "    scheduling period: 30 sec\n"
-  "    host: localhost\n"
-  "    port name: provenance\n"
-  "    port: 8090\n"
-  "    port uuid: 2f389b8d-83f2-48d3-b465-048f28a1cb56\n"
-  "    url: https://localhost:8090/\n"
-  "    originating url: http://${hostname(true)}:8081/nifi\n"
-  "    use compression: true\n"
-  "    timeout: 30 secs\n"
-  "    batch size: 1000";
+      "MiNiFi Config Version: 1\n"
+      "Flow Controller:\n"
+      "    name: MiNiFi Flow\n"
+      "    comment:\n"
+      "\n"
+      "Core Properties:\n"
+      "    flow controller graceful shutdown period: 10 sec\n"
+      "    flow service write delay interval: 500 ms\n"
+      "    administrative yield duration: 30 sec\n"
+      "    bored yield duration: 10 millis\n"
+      "\n"
+      "FlowFile Repository:\n"
+      "    partitions: 256\n"
+      "    checkpoint interval: 2 mins\n"
+      "    always sync: false\n"
+      "    Swap:\n"
+      "        threshold: 20000\n"
+      "        in period: 5 sec\n"
+      "        in threads: 1\n"
+      "        out period: 5 sec\n"
+      "        out threads: 4\n"
+      "\n"
+      "Provenance Repository:\n"
+      "    provenance rollover time: 1 min\n"
+      "\n"
+      "Content Repository:\n"
+      "    content claim max appendable size: 10 MB\n"
+      "    content claim max flow files: 100\n"
+      "    always sync: false\n"
+      "\n"
+      "Component Status Repository:\n"
+      "    buffer size: 1440\n"
+      "    snapshot frequency: 1 min\n"
+      "\n"
+      "Security Properties:\n"
+      "    keystore: /tmp/ssl/localhost-ks.jks\n"
+      "    keystore type: JKS\n"
+      "    keystore password: localtest\n"
+      "    key password: localtest\n"
+      "    truststore: /tmp/ssl/localhost-ts.jks\n"
+      "    truststore type: JKS\n"
+      "    truststore password: localtest\n"
+      "    ssl protocol: TLS\n"
+      "    Sensitive Props:\n"
+      "        key:\n"
+      "        algorithm: PBEWITHMD5AND256BITAES-CBC-OPENSSL\n"
+      "        provider: BC\n"
+      "\n"
+      "Processors:\n"
+      "    - name: TailFile\n"
+      "      class: org.apache.nifi.processors.standard.TailFile\n"
+      "      max concurrent tasks: 1\n"
+      "      scheduling strategy: TIMER_DRIVEN\n"
+      "      scheduling period: 1 sec\n"
+      "      penalization period: 30 sec\n"
+      "      yield period: 1 sec\n"
+      "      run duration nanos: 0\n"
+      "      auto-terminated relationships list:\n"
+      "      Properties:\n"
+      "          File to Tail: logs/minifi-app.log\n"
+      "          Rolling Filename Pattern: minifi-app*\n"
+      "          Initial Start Position: Beginning of File\n"
+      "\n"
+      "Connections:\n"
+      "    - name: TailToS2S\n"
+      "      source name: TailFile\n"
+      "      source relationship name: success\n"
+      "      destination name: 8644cbcc-a45c-40e0-964d-5e536e2ada61\n"
+      "      max work queue size: 0\n"
+      "      max work queue data size: 1 MB\n"
+      "      flowfile expiration: 60 sec\n"
+      "      queue prioritizer class: org.apache.nifi.prioritizer.NewestFlowFileFirstPrioritizer\n"
+      "\n"
+      "Remote Processing Groups:\n"
+      "    - name: NiFi Flow\n"
+      "      comment:\n"
+      "      url: https://localhost:8090/nifi\n"
+      "      timeout: 30 secs\n"
+      "      yield period: 10 sec\n"
+      "      Input Ports:\n"
+      "          - id: 8644cbcc-a45c-40e0-964d-5e536e2ada61\n"
+      "            name: tailed log\n"
+      "            comments:\n"
+      "            max concurrent tasks: 1\n"
+      "            use compression: false\n"
+      "\n"
+      "Provenance Reporting:\n"
+      "    comment:\n"
+      "    scheduling strategy: TIMER_DRIVEN\n"
+      "    scheduling period: 30 sec\n"
+      "    host: localhost\n"
+      "    port name: provenance\n"
+      "    port: 8090\n"
+      "    port uuid: 2f389b8d-83f2-48d3-b465-048f28a1cb56\n"
+      "    url: https://localhost:8090/\n"
+      "    originating url: http://${hostname(true)}:8081/nifi\n"
+      "    use compression: true\n"
+      "    timeout: 30 secs\n"
+      "    batch size: 1000";
 
   std::istringstream configYamlStream(CONFIG_YAML_WITHOUT_IDS);
   std::unique_ptr<core::ProcessGroup> rootFlowConfig = yamlConfig.getYamlRoot(configYamlStream);
@@ -148,7 +151,7 @@ TEST_CASE("Test YAML Config Processing", "[YamlConfiguration]") {
       core::SchedulingStrategy::TIMER_DRIVEN == rootFlowConfig->findProcessorByName("TailFile")->getSchedulingStrategy());
   REQUIRE(1 == rootFlowConfig->findProcessorByName("TailFile")->getMaxConcurrentTasks());
   REQUIRE(1 * 1000 * 1000 * 1000 == rootFlowConfig->findProcessorByName("TailFile")->getSchedulingPeriodNano());
-  REQUIRE(30 * 1000 == rootFlowConfig->findProcessorByName("TailFile")->getPenalizationPeriodMsec());
+  REQUIRE(std::chrono::seconds(30) == rootFlowConfig->findProcessorByName("TailFile")->getPenalizationPeriod());
   REQUIRE(1 * 1000 == rootFlowConfig->findProcessorByName("TailFile")->getYieldPeriodMsec());
   REQUIRE(0 == rootFlowConfig->findProcessorByName("TailFile")->getRunDurationNano());
 
@@ -186,7 +189,7 @@ TEST_CASE("Test YAML Config Processing", "[YamlConfiguration]") {
   "\n";
 
   std::istringstream configYamlStream(CONFIG_YAML_NO_RPG_PORT_ID);
-  REQUIRE_THROWS_AS(yamlConfig.getYamlRoot(configYamlStream), std::invalid_argument);
+  REQUIRE_THROWS_AS(yamlConfig.getYamlRoot(configYamlStream), std::invalid_argument&);
 }
 }
 
@@ -313,7 +316,7 @@ NiFi Properties Overrides: {}
       )";
   std::istringstream configYamlStream(TEST_CONFIG_YAML);
 
-  REQUIRE_THROWS_AS(yamlConfig.getYamlRoot(configYamlStream), minifi::Exception);
+  REQUIRE_THROWS_AS(yamlConfig.getYamlRoot(configYamlStream), minifi::Exception&);
 }
 
 TEST_CASE("Test YAML v3 Config Processing", "[YamlConfiguration3]") {
@@ -449,7 +452,7 @@ NiFi Properties Overrides: {}
   REQUIRE(core::SchedulingStrategy::TIMER_DRIVEN == rootFlowConfig->findProcessorByName("TailFile")->getSchedulingStrategy());
   REQUIRE(1 == rootFlowConfig->findProcessorByName("TailFile")->getMaxConcurrentTasks());
   REQUIRE(1 * 1000 * 1000 * 1000 == rootFlowConfig->findProcessorByName("TailFile")->getSchedulingPeriodNano());
-  REQUIRE(30 * 1000 == rootFlowConfig->findProcessorByName("TailFile")->getPenalizationPeriodMsec());
+  REQUIRE(std::chrono::seconds(30) == rootFlowConfig->findProcessorByName("TailFile")->getPenalizationPeriod());
   REQUIRE(1 * 1000 == rootFlowConfig->findProcessorByName("TailFile")->getYieldPeriodMsec());
   REQUIRE(0 == rootFlowConfig->findProcessorByName("TailFile")->getRunDurationNano());
 
@@ -494,7 +497,7 @@ Processors:
 
   REQUIRE(rootFlowConfig);
   REQUIRE(rootFlowConfig->findProcessorByName("PutFile"));
-  utils::Identifier uuid = rootFlowConfig->findProcessorByName("PutFile")->getUUID();
+  const utils::Identifier uuid = rootFlowConfig->findProcessorByName("PutFile")->getUUID();
   REQUIRE(uuid);
   REQUIRE(!rootFlowConfig->findProcessorByName("PutFile")->getUUIDStr().empty());
 
@@ -709,7 +712,7 @@ TEST_CASE("Test Exclusive Property 2", "[YamlConfigurationExclusiveProperty2]") 
   } catch (const std::exception &e) {
     config_failed = true;
     REQUIRE("Unable to parse configuration file for component named 'component A' because "
-        "property 'Prop B' is exclusive of property 'Prop A' values matching '^val.*$' "
+        "property 'Prop B' must not be set when the value of property 'Prop A' matches '^val.*$' "
         "[in 'section A' section of configuration file]" == std::string(e.what()));
   }
   REQUIRE(config_failed);

@@ -35,6 +35,7 @@
 #include "utils/ThreadPool.h"
 #include "core/logging/LoggerConfiguration.h"
 #include "controllers/SSLContextService.h"
+#include "utils/gsl.h"
 
 namespace org {
 namespace apache {
@@ -51,8 +52,11 @@ class SocketAfterExecute : public utils::AfterExecute<int> {
         list_(list) {
   }
 
-  SocketAfterExecute(const SocketAfterExecute&&) = delete;
+  SocketAfterExecute(const SocketAfterExecute&) = delete;
+  SocketAfterExecute(SocketAfterExecute&&) = delete;
+
   SocketAfterExecute& operator=(const SocketAfterExecute&) = delete;
+  SocketAfterExecute& operator=(SocketAfterExecute&&) = delete;
 
   ~SocketAfterExecute() override = default;
 
@@ -65,7 +69,7 @@ class SocketAfterExecute : public utils::AfterExecute<int> {
       return false;
     }
   }
-  bool isCancelled(const int &result) override {
+  bool isCancelled(const int& /*result*/) override {
     if (!running_)
       return true;
     else
@@ -94,7 +98,7 @@ class DataHandlerCallback : public OutputStreamCallback {
   ~DataHandlerCallback() override = default;
 
   int64_t process(const std::shared_ptr<io::BaseStream>& stream) override {
-    return stream->write(message_, size_);
+    return stream->write(message_, gsl::narrow<int>(size_));
   }
 
  private:
@@ -209,7 +213,7 @@ class GetTCP : public core::Processor, public state::response::MetricsNodeSource
    */
   void onSchedule(const std::shared_ptr<core::ProcessContext> &processContext, const std::shared_ptr<core::ProcessSessionFactory> &sessionFactory) override;
 
-  void onSchedule(core::ProcessContext *processContext, core::ProcessSessionFactory *sessionFactory) override {
+  void onSchedule(core::ProcessContext* /*processContext*/, core::ProcessSessionFactory* /*sessionFactory*/) override {
     throw std::logic_error{"GetTCP::onSchedule(ProcessContext*, ProcessSessionFactory*) is unimplemented"};
   }
   /**
@@ -219,7 +223,7 @@ class GetTCP : public core::Processor, public state::response::MetricsNodeSource
    */
   void onTrigger(const std::shared_ptr<core::ProcessContext> &context, const std::shared_ptr<core::ProcessSession> &session) override;
 
-  void onTrigger(core::ProcessContext *context, core::ProcessSession *session) override {
+  void onTrigger(core::ProcessContext* /*context*/, core::ProcessSession* /*session*/) override {
     throw std::logic_error{"GetTCP::onTrigger(ProcessContext*, ProcessSession*) is unimplemented"};
   }
 

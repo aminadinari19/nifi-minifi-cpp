@@ -40,9 +40,7 @@ class AfterExecute {
   virtual ~AfterExecute() = default;
 
   AfterExecute() = default;
-
-  explicit AfterExecute(AfterExecute &&other) {
-  }
+  AfterExecute(AfterExecute&& /*other*/) = default;
   virtual bool isFinished(const T &result) = 0;
   virtual bool isCancelled(const T &result) = 0;
   /**
@@ -68,7 +66,7 @@ class TimerAwareMonitor : public utils::AfterExecute<std::chrono::milliseconds> 
     }
     return true;
   }
-  bool isCancelled(const std::chrono::milliseconds &result) override {
+  bool isCancelled(const std::chrono::milliseconds& /*result*/) override {
     if (*run_monitor_) {
       return false;
     }
@@ -96,7 +94,7 @@ class SingleRunMonitor : public utils::AfterExecute<bool>{
   bool isFinished(const bool &result) override {
     return result;
   }
-  bool isCancelled(const bool &result) override {
+  bool isCancelled(const bool& /*result*/) override {
     return false;
   }
   std::chrono::milliseconds wait_time() override {
@@ -146,7 +144,7 @@ class ComplexMonitor : public utils::AfterExecute<TaskRescheduleInfo> {
     current_wait_.store(result.wait_time_);
     return false;
   }
-  bool isCancelled(const TaskRescheduleInfo &result) override {
+  bool isCancelled(const TaskRescheduleInfo& /*result*/) override {
     return false;
   }
   /**

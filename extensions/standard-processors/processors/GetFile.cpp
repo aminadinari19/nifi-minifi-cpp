@@ -42,9 +42,11 @@
 #include "core/ProcessSession.h"
 #include "core/TypedValues.h"
 
+#ifndef R_OK
 #define R_OK    4       /* Test for read permission.  */
 #define W_OK    2       /* Test for write permission.  */
 #define F_OK    0       /* Test for existence.  */
+#endif
 
 namespace org {
 namespace apache {
@@ -115,7 +117,7 @@ void GetFile::initialize() {
   setSupportedRelationships(relationships);
 }
 
-void GetFile::onSchedule(core::ProcessContext *context, core::ProcessSessionFactory *sessionFactory) {
+void GetFile::onSchedule(core::ProcessContext *context, core::ProcessSessionFactory* /*sessionFactory*/) {
   std::string value;
   if (context->getProperty(BatchSize.getName(), value)) {
     core::Property::StringToInt(value, request_.batchSize);
@@ -156,7 +158,7 @@ void GetFile::onSchedule(core::ProcessContext *context, core::ProcessSessionFact
   request_.inputDirectory = value;
 }
 
-void GetFile::onTrigger(core::ProcessContext *context, core::ProcessSession *session) {
+void GetFile::onTrigger(core::ProcessContext* /*context*/, core::ProcessSession *session) {
   // Perform directory list
 
   metrics_->iterations_++;
@@ -228,42 +230,49 @@ void GetFile::pollListing(std::queue<std::string> &list, const GetFileRequest &r
 bool GetFile::acceptFile(std::string fullName, std::string name, const GetFileRequest &request) {
   logger_->log_trace("Checking file: %s", fullName);
 
+#ifdef WIN32
+  struct _stat64 statbuf;
+  if (_stat64(fullName.c_str(), &statbuf) != 0) {
+    return false;
+  }
+#else
   struct stat statbuf;
+  if (stat(fullName.c_str(), &statbuf) != 0) {
+    return false;
+  }
+#endif
+  uint64_t file_size = gsl::narrow<uint64_t>(statbuf.st_size);
+  uint64_t modifiedTime = gsl::narrow<uint64_t>(statbuf.st_mtime) * 1000;
 
-  if (stat(fullName.c_str(), &statbuf) == 0) {
-    if (request.minSize > 0 && statbuf.st_size < (int32_t) request.minSize)
-      return false;
+  if (request.minSize > 0 && file_size < request.minSize)
+    return false;
 
-    if (request.maxSize > 0 && statbuf.st_size > (int32_t) request.maxSize)
-      return false;
+  if (request.maxSize > 0 && file_size > request.maxSize)
+    return false;
 
-    uint64_t modifiedTime = ((uint64_t) (statbuf.st_mtime) * 1000);
-    uint64_t fileAge = utils::timeutils::getTimeMillis() - modifiedTime;
-    if (request.minAge > 0 && fileAge < request.minAge)
-      return false;
-    if (request.maxAge > 0 && fileAge > request.maxAge)
-      return false;
+  uint64_t fileAge = utils::timeutils::getTimeMillis() - modifiedTime;
+  if (request.minAge > 0 && fileAge < request.minAge)
+    return false;
+  if (request.maxAge > 0 && fileAge > request.maxAge)
+    return false;
 
-    if (request.ignoreHiddenFile && utils::file::FileUtils::is_hidden(fullName))
-      return false;
+  if (request.ignoreHiddenFile && utils::file::FileUtils::is_hidden(fullName))
+    return false;
 
-    if (utils::file::FileUtils::access(fullName.c_str(), R_OK) != 0)
-      return false;
+  if (utils::file::FileUtils::access(fullName.c_str(), R_OK) != 0)
+    return false;
 
-    if (request.keepSourceFile == false && utils::file::FileUtils::access(fullName.c_str(), W_OK) != 0)
-      return false;
+  if (request.keepSourceFile == false && utils::file::FileUtils::access(fullName.c_str(), W_OK) != 0)
+    return false;
 
-    utils::Regex rgx(request.fileFilter);
-    if (!rgx.match(name)) {
-      return false;
-    }
-
-    metrics_->input_bytes_ += statbuf.st_size;
-    metrics_->accepted_files_++;
-    return true;
+  utils::Regex rgx(request.fileFilter);
+  if (!rgx.match(name)) {
+    return false;
   }
 
-  return false;
+  metrics_->input_bytes_ += file_size;
+  metrics_->accepted_files_++;
+  return true;
 }
 
 void GetFile::performListing(const GetFileRequest &request) {

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 #include "HTTPClient.h"
-#include "Exception.h"
+
 #include <memory>
 #include <climits>
 #include <cinttypes>
@@ -24,6 +24,9 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+
+#include "Exception.h"
+#include "utils/gsl.h"
 #include "utils/StringUtils.h"
 #include "utils/RegexUtils.h"
 
@@ -213,7 +216,7 @@ void HTTPClient::setContentType(std::string content_type) {
 }
 
 std::string HTTPClient::escape(std::string string_to_escape) {
-  return curl_easy_escape(http_session_, string_to_escape.c_str(), string_to_escape.length());
+  return curl_easy_escape(http_session_, string_to_escape.c_str(), gsl::narrow<int>(string_to_escape.length()));
 }
 
 void HTTPClient::setPostFields(const std::string& input) {
@@ -347,7 +350,7 @@ void HTTPClient::set_request_method(const std::string method) {
   }
 }
 
-int HTTPClient::onProgress(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow){
+int HTTPClient::onProgress(void *clientp, curl_off_t /*dltotal*/, curl_off_t dlnow, curl_off_t /*ultotal*/, curl_off_t ulnow){
   HTTPClient& client = *(HTTPClient*)(clientp);
   auto now = std::chrono::steady_clock::now();
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - client.progress_.last_transferred_);

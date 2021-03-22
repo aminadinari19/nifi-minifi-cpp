@@ -50,7 +50,11 @@ class ConfigurableComponent {
  public:
   ConfigurableComponent();
 
-  explicit ConfigurableComponent(const ConfigurableComponent &&other);
+  ConfigurableComponent(const ConfigurableComponent &other) = delete;
+  ConfigurableComponent(ConfigurableComponent &&other) = delete;
+
+  ConfigurableComponent& operator=(const ConfigurableComponent &other) = delete;
+  ConfigurableComponent& operator=(ConfigurableComponent &&other) = delete;
 
   /**
    * Get property using the provided name.
@@ -154,13 +158,13 @@ class ConfigurableComponent {
   /**
    * Invoked anytime a static property is modified
    */
-  virtual void onPropertyModified(const Property &old_property, const Property &new_property) {
+  virtual void onPropertyModified(const Property& /*old_property*/, const Property& /*new_property*/) {
   }
 
   /**
    * Invoked anytime a dynamic property is modified.
    */
-  virtual void onDynamicPropertyModified(const Property &old_property, const Property &new_property) {
+  virtual void onDynamicPropertyModified(const Property& /*old_property*/, const Property& /*new_property*/) {
   }
 
   /**

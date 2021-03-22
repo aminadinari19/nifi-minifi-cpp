@@ -56,7 +56,7 @@ void ExecuteSQL::initialize() {
 }
 
 void ExecuteSQL::onSchedule(core::ProcessContext *context,
-                            core::ProcessSessionFactory *sessionFactory) {
+                            core::ProcessSessionFactory* /*sessionFactory*/) {
   context->getProperty(ConnectionURL.getName(), db_url_);
 
   if (db_url_.empty()) {
@@ -177,7 +177,7 @@ int64_t ExecuteSQL::SQLReadCallback::process(const std::shared_ptr<io::BaseStrea
   auto num_read = static_cast<uint64_t >(stream->read(reinterpret_cast<uint8_t *>(&(*sql_)[0]),
                                                           static_cast<int>(stream->size())));
 
-  if (num_read != stream->getSize()) {
+  if (num_read != stream->size()) {
     throw std::runtime_error("SQLReadCallback failed to fully read flow file input stream");
   }
 

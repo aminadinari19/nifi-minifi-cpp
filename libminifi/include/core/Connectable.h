@@ -51,7 +51,11 @@ class Connectable : public CoreComponent {
 
   explicit Connectable(const std::string &name, const utils::Identifier &uuid);
 
-  explicit Connectable(const Connectable &&other);
+  Connectable(const Connectable &other) = delete;
+  Connectable(Connectable &&other) = delete;
+
+  Connectable& operator=(const Connectable &other) = delete;
+  Connectable& operator=(Connectable&& other) = delete;
 
   bool setSupportedRelationships(const std::set<Relationship> &relationships);
 
@@ -70,9 +74,8 @@ class Connectable : public CoreComponent {
   // Check whether the relationship is auto terminated
   bool isAutoTerminated(const Relationship &relationship);
 
-  // Get Processor penalization period in MilliSecond
-  uint64_t getPenalizationPeriodMsec(void) const {
-    return (_penalizationPeriodMsec);
+  std::chrono::milliseconds getPenalizationPeriod() const {
+    return penalization_period_;
   }
 
   /**
@@ -81,7 +84,7 @@ class Connectable : public CoreComponent {
    */
   virtual std::set<std::shared_ptr<Connectable>> getOutGoingConnections(const std::string &relationship) const;
 
-  virtual void put(const std::shared_ptr<FlowFile>& flow) {
+  virtual void put(const std::shared_ptr<FlowFile>& /*flow*/) {
   }
 
   virtual void restore(const std::shared_ptr<FlowFile>& file) {
@@ -158,7 +161,7 @@ class Connectable : public CoreComponent {
   // must hold the relationship_mutex_ before calling this
   std::shared_ptr<Connectable> getNextIncomingConnectionImpl(const std::lock_guard<std::mutex>& relationship_mutex_lock);
   // Penalization Period in MilliSecond
-  std::atomic<uint64_t> _penalizationPeriodMsec;
+  std::atomic<std::chrono::milliseconds> penalization_period_;
 
   uint8_t max_concurrent_tasks_;
 

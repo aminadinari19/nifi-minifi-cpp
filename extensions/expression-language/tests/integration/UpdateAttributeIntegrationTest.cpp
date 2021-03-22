@@ -44,8 +44,6 @@ class TestHarness : public IntegrationBase {
     LogTestController::getInstance().setInfo<processors::LogAttribute>();
   }
 
-  void cleanup() override {}
-
   void runAssertions() override {
     using org::apache::nifi::minifi::utils::verifyLogLinePresenceInPollTime;
     assert(verifyLogLinePresenceInPollTime(std::chrono::milliseconds(wait_time_),
@@ -54,7 +52,7 @@ class TestHarness : public IntegrationBase {
     assert(false == verifyLogLinePresenceInPollTime(std::chrono::milliseconds(200), "ProcessSession rollback"));  // No rollback happened
   }
 
-  void queryRootProcessGroup(std::shared_ptr<core::ProcessGroup> pg) override {
+  void queryRootProcessGroup(std::shared_ptr<core::ProcessGroup> /*pg*/) override {
     // inject the variable into the context.
     configuration->set("nifi.variable.test", "replacement_value");
   }

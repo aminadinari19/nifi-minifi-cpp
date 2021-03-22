@@ -23,6 +23,7 @@
 
 #include "VolatileRepository.h"
 #include "FlowFileRecord.h"
+#include "utils/gsl.h"
 
 namespace org {
 namespace apache {
@@ -39,7 +40,7 @@ class VolatileFlowFileRepository : public VolatileRepository<std::string>, publi
   using utils::EnableSharedFromThis<VolatileFlowFileRepository>::sharedFromThis;
 
  public:
-  explicit VolatileFlowFileRepository(std::string repo_name = "", std::string dir = REPOSITORY_DIRECTORY, int64_t maxPartitionMillis = MAX_REPOSITORY_ENTRY_LIFE_TIME, int64_t maxPartitionBytes =
+  explicit VolatileFlowFileRepository(std::string repo_name = "", std::string /*dir*/ = REPOSITORY_DIRECTORY, int64_t maxPartitionMillis = MAX_REPOSITORY_ENTRY_LIFE_TIME, int64_t maxPartitionBytes =
   MAX_REPOSITORY_STORAGE_SIZE,
                                       uint64_t purgePeriod = REPOSITORY_PURGE_PERIOD)
       : core::SerializableComponent(repo_name),
@@ -62,7 +63,8 @@ class VolatileFlowFileRepository : public VolatileRepository<std::string>, publi
       std::lock_guard<std::mutex> lock(purge_mutex_);
       for (auto purgeItem : purge_list_) {
         utils::Identifier containerId;
-        auto eventRead = FlowFileRecord::DeSerialize(reinterpret_cast<const uint8_t *>(purgeItem.data()), purgeItem.size(), content_repo_, containerId);
+        auto eventRead = FlowFileRecord::DeSerialize(reinterpret_cast<const uint8_t *>(purgeItem.data()), gsl::narrow<int>(purgeItem.size()),
+                                                     content_repo_, containerId);
         if (eventRead) {
           auto claim = eventRead->getResourceClaim();
           if (claim) claim->decreaseFlowFileRecordOwnedCount();

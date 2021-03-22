@@ -25,21 +25,10 @@ namespace minifi {
 namespace core {
 
 ProcessorNode::ProcessorNode(const std::shared_ptr<Connectable> &processor)
-    : processor_(processor),
+    : ConfigurableComponent(),
       Connectable(processor->getName()),
-      ConfigurableComponent() {
+      processor_(processor) {
   setUUID(processor->getUUID());
-}
-
-ProcessorNode::ProcessorNode(const ProcessorNode &other)
-    : processor_(other.processor_),
-      Connectable(other.getName()) {
-  setUUID(processor_->getUUID());
-}
-
-ProcessorNode::ProcessorNode(const ProcessorNode &&other)
-    : Connectable(std::move(other)),
-      processor_(std::move(other.processor_)) {
 }
 
 ProcessorNode::~ProcessorNode() = default;

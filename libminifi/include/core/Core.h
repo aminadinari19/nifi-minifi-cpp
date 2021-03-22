@@ -124,6 +124,7 @@ struct class_operations {
 
 template<typename T>
 typename std::enable_if<!class_operations<T>::value, std::shared_ptr<T>>::type instantiate(const std::string name = "") {
+  (void)name;  // against unused variable warnings
   throw std::runtime_error("Cannot instantiate class");
 }
 
@@ -195,7 +196,7 @@ class CoreComponent {
     return uuid_.to_string();
   }
 
-  virtual void configure(const std::shared_ptr<Configure> &configuration) {
+  virtual void configure(const std::shared_ptr<Configure>& /*configuration*/) {
   }
 
   void loadComponent() {

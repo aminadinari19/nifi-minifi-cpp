@@ -29,6 +29,7 @@
 #include "rapidjson/document.h"
 #include "HTTPUtils.h"
 #include "ServerAwareHandler.h"
+#include "utils/gsl.h"
 
 static std::atomic<int> transaction_id;
 static std::atomic<int> transaction_id_output;
@@ -52,7 +53,7 @@ class SiteToSiteLocationResponder : public ServerAwareHandler {
   explicit SiteToSiteLocationResponder(bool isSecure)
       : isSecure(isSecure) {
   }
-  bool handleGet(CivetServer *server, struct mg_connection *conn) override {
+  bool handleGet(CivetServer* /*server*/, struct mg_connection *conn) override {
     std::string site2site_rest_resp = "{"
         "\"revision\": {"
         "\"clientId\": \"483d53eb-53ec-4e93-b4d4-1fc3d23dae6f\""
@@ -78,12 +79,13 @@ class PeerResponder : public ServerAwareHandler {
  public:
 
   explicit PeerResponder(std::string base_url) {
+    (void)base_url;  // unused in release builds
     std::string scheme;
     assert(parse_http_components(base_url, port, scheme, path));
   }
 
-  bool handleGet(CivetServer *server, struct mg_connection *conn) override {
-  
+  bool handleGet(CivetServer* /*server*/, struct mg_connection *conn) override {
+
 #ifdef WIN32
     std::string hostname = org::apache::nifi::minifi::io::Socket::getMyHostName();
 #else
@@ -110,7 +112,7 @@ class SiteToSiteBaseResponder : public ServerAwareHandler {
       : base_url(std::move(base_url)) {
   }
 
-  bool handleGet(CivetServer *server, struct mg_connection *conn) override {
+  bool handleGet(CivetServer* /*server*/, struct mg_connection *conn) override {
     std::string site2site_rest_resp =
         "{\"controller\":{\"id\":\"96dab149-0162-1000-7924-ed3122d6ea2b\",\"name\":\"NiFi Flow\",\"comments\":\"\",\"runningCount\":3,\"stoppedCount\":6,\"invalidCount\":1,\"disabledCount\":0,\"inputPortCount\":1,\"outputPortCount\":1,\"remoteSiteListeningPort\":10443,\"siteToSiteSecure\":false,\"instanceId\":\"13881505-0167-1000-be72-aa29341a3e9a\",\"inputPorts\":[{\"id\":\"471deef6-2a6e-4a7d-912a-81cc17e3a204\",\"name\":\"RPGIN\",\"comments\":\"\",\"state\":\"RUNNING\"}],\"outputPorts\":[{\"id\":\"9cf15a63-0166-1000-1b29-027406d96013\",\"name\":\"ddsga\",\"comments\":\"\",\"state\":\"STOPPED\"}]}}";
     std::stringstream headers;
@@ -146,7 +148,7 @@ class TransactionResponder : public ServerAwareHandler {
     }
   }
 
-  bool handlePost(CivetServer *server, struct mg_connection *conn) override {
+  bool handlePost(CivetServer* /*server*/, struct mg_connection *conn) override {
     std::string site2site_rest_resp;
     std::stringstream headers;
     headers << "HTTP/1.1 201 OK\r\nContent-Type: application/json\r\nContent-Length: " << site2site_rest_resp.length() << "\r\nX-Location-Uri-Intent: ";
@@ -204,7 +206,7 @@ class FlowFileResponder : public ServerAwareHandler {
     flow_files_feed_ = feed;
   }
 
-  bool handlePost(CivetServer *server, struct mg_connection *conn) override {
+  bool handlePost(CivetServer* /*server*/, struct mg_connection *conn) override {
     std::string site2site_rest_resp;
     std::stringstream headers;
 
@@ -241,7 +243,7 @@ class FlowFileResponder : public ServerAwareHandler {
 
       read = stream.read(flow->data.data(), gsl::narrow<int>(length));
       if(!isServerRunning())return false;
-      assert(read == length);
+      assert(read == gsl::narrow<int>(length));
 
       if (!invalid_checksum) {
         site2site_rest_resp = std::to_string(stream.getCRC());
@@ -260,7 +262,7 @@ class FlowFileResponder : public ServerAwareHandler {
     return true;
   }
 
-  bool handleGet(CivetServer *server, struct mg_connection *conn) override {
+  bool handleGet(CivetServer* /*server*/, struct mg_connection *conn) override {
 
     if (flow_files_feed_->size_approx() > 0) {
       std::shared_ptr<FlowObj> flowobj;
@@ -280,7 +282,7 @@ class FlowFileResponder : public ServerAwareHandler {
       minifi::io::BufferStream serializer;
       minifi::io::CRCStream < minifi::io::BaseStream > stream(gsl::make_not_null(&serializer));
       for (const auto& flow : flows) {
-        uint32_t num_attributes = flow->attributes.size();
+        uint32_t num_attributes = gsl::narrow<uint32_t>(flow->attributes.size());
         stream.write(num_attributes);
         for (const auto& entry : flow->attributes) {
           stream.write(entry.first);
@@ -332,7 +334,7 @@ class DeleteTransactionResponder : public ServerAwareHandler {
         response_code(std::move(response_code)) {
   }
 
-  bool handleDelete(CivetServer *server, struct mg_connection *conn) override {
+  bool handleDelete(CivetServer* /*server*/, struct mg_connection *conn) override {
     std::string site2site_rest_resp;
     std::stringstream headers;
     std::string resp;
@@ -447,20 +449,20 @@ class HeartbeatHandler : public ServerAwareHandler {
   }
 };
 
-class C2UpdateHandler : public ServerAwareHandler {
+class C2FlowProvider : public ServerAwareHandler {
  public:
-  explicit C2UpdateHandler(const std::string& test_file_location)
-    : test_file_location_(test_file_location) {
+  explicit C2FlowProvider(std::string test_file_location)
+      : test_file_location_(std::move(test_file_location)) {
   }
 
-  bool handlePost(CivetServer *server, struct mg_connection *conn) override {
-    calls_++;
-    if (!response_.empty()) {
+  bool handleGet(CivetServer* /*server*/, struct mg_connection *conn) override {
+    std::ifstream myfile(test_file_location_.c_str(), std::ios::in | std::ios::binary);
+    if (myfile.good()) {
+      std::string str((std::istreambuf_iterator<char>(myfile)), (std::istreambuf_iterator<char>()));
       mg_printf(conn, "HTTP/1.1 200 OK\r\nContent-Type: "
-                "text/plain\r\nContent-Length: %lu\r\nConnection: close\r\n\r\n",
-                response_.length());
-      mg_printf(conn, "%s", response_.c_str());
-      response_.clear();
+                      "text/plain\r\nContent-Length: %lu\r\nConnection: close\r\n\r\n",
+                str.length());
+      mg_printf(conn, "%s", str.c_str());
     } else {
       mg_printf(conn, "HTTP/1.1 500 Internal Server Error\r\n");
     }
@@ -468,14 +470,22 @@ class C2UpdateHandler : public ServerAwareHandler {
     return true;
   }
 
-  bool handleGet(CivetServer *server, struct mg_connection *conn) override {
-    std::ifstream myfile(test_file_location_.c_str(), std::ios::in | std::ios::binary);
-    if (myfile.good()) {
-      std::string str((std::istreambuf_iterator<char>(myfile)), (std::istreambuf_iterator<char>()));
+ private:
+  const std::string test_file_location_;
+};
+
+class C2UpdateHandler : public C2FlowProvider {
+ public:
+  using C2FlowProvider::C2FlowProvider;
+
+  bool handlePost(CivetServer* /*server*/, struct mg_connection *conn) override {
+    calls_++;
+    if (!response_.empty()) {
       mg_printf(conn, "HTTP/1.1 200 OK\r\nContent-Type: "
                 "text/plain\r\nContent-Length: %lu\r\nConnection: close\r\n\r\n",
-                str.length());
-      mg_printf(conn, "%s", str.c_str());
+                response_.length());
+      mg_printf(conn, "%s", response_.c_str());
+      response_.clear();
     } else {
       mg_printf(conn, "HTTP/1.1 500 Internal Server Error\r\n");
     }
@@ -498,9 +508,14 @@ class C2UpdateHandler : public ServerAwareHandler {
             "\"content\": " + content + "}]}";
   }
 
+  size_t getCallCount() const {
+    return calls_;
+  }
+
+ protected:
   std::atomic<size_t> calls_{0};
+
  private:
-  std::string test_file_location_;
   std::string response_;
 };
 

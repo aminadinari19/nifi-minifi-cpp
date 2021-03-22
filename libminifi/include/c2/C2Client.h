@@ -23,7 +23,7 @@
 #include <map>
 #include <string>
 #include <mutex>
-#include "core/state/UpdateController.h"
+#include "c2/C2Agent.h"
 #include "core/controller/ControllerServiceProvider.h"
 #include "properties/Configure.h"
 #include "core/logging/Logger.h"
@@ -48,7 +48,7 @@ class C2Client : public core::Flow, public state::response::NodeReporter {
       std::unique_ptr<core::FlowConfiguration> flow_configuration, std::shared_ptr<utils::file::FileSystem> filesystem,
       std::shared_ptr<logging::Logger> logger = logging::LoggerFactory<C2Client>::getLogger());
 
-  void initialize(core::controller::ControllerServiceProvider* controller, const std::shared_ptr<state::StateMonitor> &update_sink);
+  void initialize(core::controller::ControllerServiceProvider *controller, state::Pausable *pause_handler, const std::shared_ptr<state::StateMonitor> &update_sink);
 
   std::shared_ptr<state::response::ResponseNode> getMetricsNode(const std::string& metrics_class) const override;
 
@@ -58,6 +58,7 @@ class C2Client : public core::Flow, public state::response::NodeReporter {
 
  protected:
   bool isC2Enabled() const;
+  utils::optional<std::string> fetchFlow(const std::string& uri) const;
 
  private:
   void initializeComponentMetrics();
@@ -67,9 +68,9 @@ class C2Client : public core::Flow, public state::response::NodeReporter {
  protected:
   std::shared_ptr<Configure> configuration_;
   std::shared_ptr<utils::file::FileSystem> filesystem_;
-  std::unique_ptr<state::UpdateController> c2_agent_;
 
  private:
+  std::unique_ptr<C2Agent> c2_agent_;
   std::atomic_bool initialized_{false};
   std::shared_ptr<logging::Logger> logger_;
 

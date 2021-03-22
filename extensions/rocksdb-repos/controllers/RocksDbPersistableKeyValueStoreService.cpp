@@ -32,8 +32,8 @@ core::Property RocksDbPersistableKeyValueStoreService::Directory(
         ->isRequired(true)->build());
 
 RocksDbPersistableKeyValueStoreService::RocksDbPersistableKeyValueStoreService(const std::string& name, utils::Identifier uuid /*= utils::Identifier()*/)
-    : AbstractAutoPersistingKeyValueStoreService(name, uuid)
-    , PersistableKeyValueStoreService(name, uuid)
+    : PersistableKeyValueStoreService(name, uuid)
+    , AbstractAutoPersistingKeyValueStoreService(name, uuid)
     , logger_(logging::LoggerFactory<RocksDbPersistableKeyValueStoreService>::getLogger()) {
 }
 
@@ -182,7 +182,7 @@ bool RocksDbPersistableKeyValueStoreService::clear() {
   return true;
 }
 
-bool RocksDbPersistableKeyValueStoreService::update(const std::string& key, const std::function<bool(bool /*exists*/, std::string& /*value*/)>& update_func) {
+bool RocksDbPersistableKeyValueStoreService::update(const std::string& /*key*/, const std::function<bool(bool /*exists*/, std::string& /*value*/)>& /*update_func*/) {
   if (!db_) {
     return false;
   }

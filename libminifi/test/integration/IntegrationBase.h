@@ -39,7 +39,7 @@ class IntegrationBase {
 
   virtual ~IntegrationBase() = default;
 
-  virtual void run(const std::string& test_file_location, const utils::optional<std::string>& bootstrap_file = {});
+  virtual void run(const utils::optional<std::string>& test_file_location = {}, const utils::optional<std::string>& bootstrap_file = {});
 
   void setKeyDir(const std::string key_dir) {
     this->key_dir = key_dir;
@@ -56,7 +56,11 @@ class IntegrationBase {
     return configuration;
   }
 
-  virtual void cleanup() = 0;
+  virtual void cleanup() {
+    if (!state_dir.empty()) {
+      utils::file::delete_dir(state_dir);
+    }
+  }
 
   virtual void runAssertions() = 0;
 
@@ -65,7 +69,7 @@ class IntegrationBase {
   virtual void configureC2() {
   }
 
-  virtual void queryRootProcessGroup(std::shared_ptr<core::ProcessGroup> pg) {
+  virtual void queryRootProcessGroup(std::shared_ptr<core::ProcessGroup> /*pg*/) {
 
   }
 
@@ -73,7 +77,7 @@ class IntegrationBase {
 
   }
 
-  virtual void updateProperties(std::shared_ptr<minifi::FlowController> fc) {
+  virtual void updateProperties(std::shared_ptr<minifi::FlowController> /*fc*/) {
 
   }
 
@@ -81,7 +85,7 @@ class IntegrationBase {
   std::shared_ptr<minifi::Configure> configuration;
   std::shared_ptr<minifi::FlowController> flowController_;
   uint64_t wait_time_;
-  std::string port, scheme, path;
+  std::string port, scheme;
   std::string key_dir;
   std::string state_dir;
 };
@@ -101,13 +105,15 @@ void IntegrationBase::configureSecurity() {
   }
 }
 
-void IntegrationBase::run(const std::string& test_file_location, const utils::optional<std::string>& home_path) {
+void IntegrationBase::run(const utils::optional<std::string>& test_file_location, const utils::optional<std::string>& home_path) {
   testSetup();
 
   std::shared_ptr<core::Repository> test_repo = std::make_shared<TestRepository>();
   std::shared_ptr<core::Repository> test_flow_repo = std::make_shared<TestFlowRepository>();
 
-  configuration->set(minifi::Configure::nifi_flow_configuration_file, test_file_location);
+  if (test_file_location) {
+    configuration->set(minifi::Configure::nifi_flow_configuration_file, *test_file_location);
+  }
   configuration->set(minifi::Configure::nifi_state_management_provider_local_class_name, "UnorderedMapKeyValueStoreService");
 
   configureC2();

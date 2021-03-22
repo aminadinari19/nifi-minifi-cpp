@@ -28,7 +28,7 @@
 #define EXPRESSION_LANGUAGE_USE_DATE
 
 // Disable date in EL for incompatible compilers
-#if defined(WIN32) || __GNUC__ < 5
+#if !defined(WIN32) && __GNUC__ < 5
 #undef EXPRESSION_LANGUAGE_USE_DATE
 #endif
 
@@ -79,7 +79,7 @@ class Expression {
         fn_args_(),
         is_multi_(false) {
     val_ = val;
-    sub_expr_generator_ = [](const Parameters &params) -> std::vector<Expression> {return {};};
+    sub_expr_generator_ = [](const Parameters& /*params*/) -> std::vector<Expression> {return {};};
   }
 
   /**

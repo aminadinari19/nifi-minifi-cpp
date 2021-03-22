@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "core/TypedValues.h"
+#include "utils/gsl.h"
 
 namespace org {
 namespace apache {
@@ -38,6 +39,25 @@ namespace c2 {
 #pragma push_macro("GetObject")
 #undef GetObject
 #endif
+
+AnnotatedValue parseAnnotatedValue(const rapidjson::Value& jsonValue) {
+  AnnotatedValue result;
+  if (jsonValue.IsObject() && jsonValue.HasMember("value")) {
+    result = jsonValue["value"].GetString();
+    for (const auto& annotation : jsonValue.GetObject()) {
+      if (annotation.name.GetString() == std::string("value")) {
+        continue;
+      }
+      result.annotations[annotation.name.GetString()] = parseAnnotatedValue(annotation.value);
+    }
+  } else if (jsonValue.IsBool()) {
+    result = jsonValue.GetBool();
+  } else {
+    result = jsonValue.GetString();
+  }
+  return result;
+}
+
 const C2Payload RESTProtocol::parseJsonResponse(const C2Payload &payload, const std::vector<char> &response) {
   rapidjson::Document root;
 
@@ -47,28 +67,26 @@ const C2Payload RESTProtocol::parseJsonResponse(const C2Payload &payload, const 
       std::string requested_operation = getOperation(payload);
 
       std::string identifier;
-
-      if (root.HasMember("operationid")) {
-        identifier = root["operationid"].GetString();
-      } else if (root.HasMember("operationId")) {
-        identifier = root["operationId"].GetString();
-      } else if (root.HasMember("identifier")) {
-        identifier = root["identifier"].GetString();
+      for (auto key : {"operationid", "operationId", "identifier"}) {
+        if (root.HasMember(key)) {
+          identifier = root[key].GetString();
+          break;
+        }
       }
 
       int size = 0;
-      if (root.HasMember("requested_operations")) {
-        size = root["requested_operations"].Size();
-      }
-      if (root.HasMember("requestedOperations")) {
-        size = root["requestedOperations"].Size();
+      for (auto key : {"requested_operations", "requestedOperations"}) {
+        if (root.HasMember(key)) {
+          size = root[key].Size();
+          break;
+        }
       }
 
       // neither must be there. We don't want assign array yet and cause an assertion error
       if (size == 0)
-        return C2Payload(payload.getOperation(), state::UpdateState::READ_COMPLETE, true);
+        return C2Payload(payload.getOperation(), state::UpdateState::READ_COMPLETE);
 
-      C2Payload new_payload(payload.getOperation(), state::UpdateState::NESTED, true);
+      C2Payload new_payload(payload.getOperation(), state::UpdateState::NESTED);
       if (!identifier.empty())
         new_payload.setIdentifier(identifier);
 
@@ -76,37 +94,25 @@ const C2Payload RESTProtocol::parseJsonResponse(const C2Payload &payload, const 
 
       for (const rapidjson::Value& request : array) {
         Operation newOp = stringToOperation(request["operation"].GetString());
-        C2Payload nested_payload(newOp, state::UpdateState::READ_COMPLETE, true);
+        C2Payload nested_payload(newOp, state::UpdateState::READ_COMPLETE);
         C2ContentResponse new_command(newOp);
         new_command.delay = 0;
         new_command.required = true;
         new_command.ttl = -1;
 
         // set the identifier if one exists
-        if (request.HasMember("operationid")) {
-          if (request["operationid"].IsNumber())
-            new_command.ident = std::to_string(request["operationid"].GetInt64());
-          else if (request["operationid"].IsString())
-            new_command.ident = request["operationid"].GetString();
-          else
-            throw(Exception(SITE2SITE_EXCEPTION, "Invalid type for operationid"));
-          nested_payload.setIdentifier(new_command.ident);
-        } else if (request.HasMember("operationId")) {
-          if (request["operationId"].IsNumber())
-            new_command.ident = std::to_string(request["operationId"].GetInt64());
-          else if (request["operationId"].IsString())
-            new_command.ident = request["operationId"].GetString();
-          else
-            throw(Exception(SITE2SITE_EXCEPTION, "Invalid type for operationId"));
-          nested_payload.setIdentifier(new_command.ident);
-        } else if (request.HasMember("identifier")) {
-          if (request["identifier"].IsNumber())
-            new_command.ident = std::to_string(request["identifier"].GetInt64());
-          else if (request["identifier"].IsString())
-            new_command.ident = request["identifier"].GetString();
-          else
-            throw(Exception(SITE2SITE_EXCEPTION, "Invalid type for operationid"));
-          nested_payload.setIdentifier(new_command.ident);
+        for (auto key : {"operationid", "operationId", "identifier"}) {
+          if (request.HasMember(key)) {
+            if (request[key].IsNumber()) {
+              new_command.ident = std::to_string(request[key].GetInt64());
+            } else if (request[key].IsString()) {
+              new_command.ident = request[key].GetString();
+            } else {
+              throw Exception(SITE2SITE_EXCEPTION, "Invalid type for " + std::string{key});
+            }
+            nested_payload.setIdentifier(new_command.ident);
+            break;
+          }
         }
 
         if (request.HasMember("name")) {
@@ -115,23 +121,15 @@ const C2Payload RESTProtocol::parseJsonResponse(const C2Payload &payload, const 
           new_command.name = request["operand"].GetString();
         }
 
-        if (request.HasMember("content") && request["content"].MemberCount() > 0) {
-          if (request["content"].IsArray()) {
-            for (const auto &member : request["content"].GetArray())
-              new_command.operation_arguments[member.GetString()] = member.GetString();
-          } else {
-            for (const auto &member : request["content"].GetObject())
-              new_command.operation_arguments[member.name.GetString()] = member.value.GetString();
-          }
-        } else if (request.HasMember("args") && request["args"].MemberCount() > 0) {
-          if (request["args"].IsArray()) {
-            for (const auto &member : request["args"].GetArray())
-              new_command.operation_arguments[member.GetString()] = member.GetString();
-          } else {
-            for (const auto &member : request["args"].GetObject())
-              new_command.operation_arguments[member.name.GetString()] = member.value.GetString();
+        for (auto key : {"content", "args"}) {
+          if (request.HasMember(key) && request[key].IsObject()) {
+            for (const auto &member : request[key].GetObject()) {
+              new_command.operation_arguments[member.name.GetString()] = parseAnnotatedValue(member.value);
+            }
+            break;
           }
         }
+
         nested_payload.addContent(std::move(new_command));
         new_payload.addPayload(std::move(nested_payload));
       }
@@ -142,7 +140,7 @@ const C2Payload RESTProtocol::parseJsonResponse(const C2Payload &payload, const 
     }
   } catch (...) {
   }
-  return C2Payload(payload.getOperation(), state::UpdateState::READ_COMPLETE, true);
+  return C2Payload(payload.getOperation(), state::UpdateState::READ_COMPLETE);
 }
 
 void setJsonStr(const std::string& key, const state::response::ValueNode& value, rapidjson::Value& parent, rapidjson::Document::AllocatorType& alloc) {  // NOLINT
@@ -150,13 +148,13 @@ void setJsonStr(const std::string& key, const state::response::ValueNode& value,
   rapidjson::Value valueVal;
   const char* c_key = key.c_str();
   auto base_type = value.getValue();
-  keyVal.SetString(c_key, key.length(), alloc);
+  keyVal.SetString(c_key, gsl::narrow<rapidjson::SizeType>(key.length()), alloc);
 
   auto type_index = base_type->getTypeIndex();
   if (auto sub_type = std::dynamic_pointer_cast<core::TransformableValue>(base_type)) {
     auto str = base_type->getStringValue();
     const char* c_val = str.c_str();
-    valueVal.SetString(c_val, str.length(), alloc);
+    valueVal.SetString(c_val, gsl::narrow<rapidjson::SizeType>(str.length()), alloc);
   } else {
     if (type_index == state::response::Value::BOOL_TYPE) {
       bool value = false;
@@ -181,7 +179,7 @@ void setJsonStr(const std::string& key, const state::response::ValueNode& value,
     } else {
       auto str = base_type->getStringValue();
       const char* c_val = str.c_str();
-      valueVal.SetString(c_val, str.length(), alloc);
+      valueVal.SetString(c_val, gsl::narrow<rapidjson::SizeType>(str.length()), alloc);
     }
   }
   parent.AddMember(keyVal, valueVal, alloc);
@@ -189,7 +187,7 @@ void setJsonStr(const std::string& key, const state::response::ValueNode& value,
 
 rapidjson::Value RESTProtocol::getStringValue(const std::string& value, rapidjson::Document::AllocatorType& alloc) {  // NOLINT
   rapidjson::Value Val;
-  Val.SetString(value.c_str(), value.length(), alloc);
+  Val.SetString(value.c_str(), gsl::narrow<rapidjson::SizeType>(value.length()), alloc);
   return Val;
 }
 
@@ -218,7 +216,7 @@ void RESTProtocol::mergePayloadContent(rapidjson::Value &target, const C2Payload
     for (const auto &payload_content : content) {
       for (const auto& op_arg : payload_content.operation_arguments) {
         rapidjson::Value keyVal;
-        keyVal.SetString(op_arg.first.c_str(), op_arg.first.length(), alloc);
+        keyVal.SetString(op_arg.first.c_str(), gsl::narrow<rapidjson::SizeType>(op_arg.first.length()), alloc);
         if (is_parent_array) {
           target.PushBack(keyVal, alloc);
         } else {
@@ -256,7 +254,7 @@ std::string RESTProtocol::serializeJsonRootPayload(const C2Payload& payload) {
 
   rapidjson::Value opReqStrVal;
   std::string operation_request_str = getOperation(payload);
-  opReqStrVal.SetString(operation_request_str.c_str(), operation_request_str.length(), alloc);
+  opReqStrVal.SetString(operation_request_str.c_str(), gsl::narrow<rapidjson::SizeType>(operation_request_str.length()), alloc);
   json_payload.AddMember("operation", opReqStrVal, alloc);
 
   std::string operationid = payload.getIdentifier();
@@ -319,7 +317,7 @@ bool RESTProtocol::containsPayload(const C2Payload &o) {
 rapidjson::Value RESTProtocol::serializeConnectionQueues(const C2Payload &payload, std::string &label, rapidjson::Document::AllocatorType &alloc) {
   rapidjson::Value json_payload(payload.isContainer() ? rapidjson::kArrayType : rapidjson::kObjectType);
 
-  C2Payload adjusted(payload.getOperation(), payload.getIdentifier(), false, payload.isRaw());
+  C2Payload adjusted(payload.getOperation(), payload.getIdentifier(), payload.isRaw());
 
   auto name = payload.getLabel();
   std::string uuid;
@@ -335,7 +333,7 @@ rapidjson::Value RESTProtocol::serializeConnectionQueues(const C2Payload &payloa
   updatedContent.name = uuid;
   adjusted.setLabel(uuid);
   adjusted.setIdentifier(uuid);
-  state::response::ValueNode nd;
+  c2::AnnotatedValue nd;
   // name should be what was previously the TLN ( top level node )
   nd = name;
   updatedContent.operation_arguments.insert(std::make_pair("name", nd));
@@ -433,6 +431,10 @@ std::string RESTProtocol::getOperation(const C2Payload &payload) {
       return "start";
     case Operation::UPDATE:
       return "update";
+    case Operation::PAUSE:
+      return "pause";
+    case Operation::RESUME:
+      return "resume";
     default:
       return "heartbeat";
   }
@@ -457,6 +459,10 @@ Operation RESTProtocol::stringToOperation(const std::string str) {
     return Operation::STOP;
   } else if (op == "start") {
     return Operation::START;
+  } else if (op == "pause") {
+    return Operation::PAUSE;
+  } else if (op == "resume") {
+    return Operation::RESUME;
   }
   return Operation::HEARTBEAT;
 }

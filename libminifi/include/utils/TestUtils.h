@@ -19,10 +19,13 @@
 #pragma once
 
 #include <string>
+#include <memory>
 
 #include "../../test/TestBase.h"
 #include "utils/file/FileUtils.h"
 #include "utils/Environment.h"
+#include "utils/Id.h"
+#include "utils/TimeUtil.h"
 
 namespace org {
 namespace apache {
@@ -30,9 +33,14 @@ namespace nifi {
 namespace minifi {
 namespace utils {
 
-std::string createTempDir(TestController* testController) {
-  char dirtemplate[] = "/tmp/gt.XXXXXX";
-  std::string temp_dir = testController->createTempDirectory(dirtemplate);
+std::string createTempDir(TestController* testController, char* format = nullptr) {
+  std::string temp_dir;
+  if (format == nullptr) {
+    char dirtemplate[] = "/tmp/gt.XXXXXX";
+    temp_dir = testController->createTempDirectory(dirtemplate);
+  } else {
+    temp_dir = testController->createTempDirectory(format);
+  }
   REQUIRE(!temp_dir.empty());
   REQUIRE(file::FileUtils::is_directory(temp_dir.c_str()));
   return temp_dir;
@@ -59,6 +67,21 @@ std::string getFileContent(const std::string& file_name) {
   const std::string file_content{ (std::istreambuf_iterator<char>(file_handle)), (std::istreambuf_iterator<char>()) };
   return file_content;
 }
+
+Identifier generateUUID() {
+  // TODO(hunyadi): Will make the Id generator manage lifetime using a unique_ptr and return a raw ptr on access
+  static std::shared_ptr<utils::IdGenerator> id_generator = utils::IdGenerator::getIdGenerator();
+  return id_generator->generate();
+}
+
+class ManualClock : public timeutils::Clock {
+ public:
+  std::chrono::milliseconds timeSinceEpoch() const override { return time_; }
+  void advance(std::chrono::milliseconds elapsed_time) { time_ += elapsed_time; }
+
+ private:
+  std::chrono::milliseconds time_{0};
+};
 
 }  // namespace utils
 }  // namespace minifi

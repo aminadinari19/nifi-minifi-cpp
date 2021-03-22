@@ -22,6 +22,8 @@
 #include <cinttypes>
 
 #include "core/yaml/YamlConfiguration.h"
+#include "core/yaml/CheckRequiredField.h"
+#include "core/yaml/YamlConnectionParser.h"
 #include "core/state/Value.h"
 #include "Defaults.h"
 
@@ -46,11 +48,11 @@ YamlConfiguration::YamlConfiguration(const std::shared_ptr<core::Repository>& re
       stream_factory_(stream_factory),
       logger_(logging::LoggerFactory<YamlConfiguration>::getLogger()) {}
 
-core::ProcessGroup *YamlConfiguration::parseRootProcessGroupYaml(YAML::Node rootFlowNode) {
+std::unique_ptr<core::ProcessGroup> YamlConfiguration::parseRootProcessGroupYaml(YAML::Node rootFlowNode) {
   utils::Identifier uuid;
   int version = 0;
 
-  checkRequiredField(&rootFlowNode, "name",
+  yaml::checkRequiredField(&rootFlowNode, "name", logger_,
   CONFIG_YAML_REMOTE_PROCESS_GROUP_KEY);
   std::string flowName = rootFlowNode["name"].as<std::string>();
 
@@ -88,8 +90,39 @@ core::ProcessGroup *YamlConfiguration::parseRootProcessGroupYaml(YAML::Node root
     }
   }
 
-  return group.release();
+  return group;
 }
+
+std::unique_ptr<core::ProcessGroup> YamlConfiguration::getYamlRoot(YAML::Node *rootYamlNode) {
+    YAML::Node rootYaml = *rootYamlNode;
+    YAML::Node flowControllerNode = rootYaml[CONFIG_YAML_FLOW_CONTROLLER_KEY];
+    YAML::Node processorsNode = rootYaml[CONFIG_YAML_PROCESSORS_KEY];
+    YAML::Node connectionsNode = rootYaml[yaml::YamlConnectionParser::CONFIG_YAML_CONNECTIONS_KEY];
+    YAML::Node controllerServiceNode = rootYaml[CONFIG_YAML_CONTROLLER_SERVICES_KEY];
+    YAML::Node remoteProcessingGroupsNode = rootYaml[CONFIG_YAML_REMOTE_PROCESS_GROUP_KEY];
+
+    if (!remoteProcessingGroupsNode) {
+      remoteProcessingGroupsNode = rootYaml[CONFIG_YAML_REMOTE_PROCESS_GROUP_KEY_V3];
+    }
+
+    YAML::Node provenanceReportNode = rootYaml[CONFIG_YAML_PROVENANCE_REPORT_KEY];
+
+    parseControllerServices(&controllerServiceNode);
+    // Create the root process group
+    std::unique_ptr<core::ProcessGroup> root = parseRootProcessGroupYaml(flowControllerNode);
+    parseProcessorNodeYaml(processorsNode, root.get());
+    parseRemoteProcessGroupYaml(&remoteProcessingGroupsNode, root.get());
+    parseConnectionYaml(&connectionsNode, root.get());
+    parseProvenanceReportingYaml(&provenanceReportNode, root.get());
+
+    // set the controller services into the root group.
+    for (const auto& controller_service : controller_services_->getAllControllerServices()) {
+      root->addControllerService(controller_service->getName(), controller_service);
+      root->addControllerService(controller_service->getUUIDStr(), controller_service);
+    }
+
+    return root;
+  }
 
 void YamlConfiguration::parseProcessorNodeYaml(YAML::Node processorsNode, core::ProcessGroup *parentGroup) {
   int64_t schedulingPeriod = -1;
@@ -111,7 +144,7 @@ void YamlConfiguration::parseProcessorNodeYaml(YAML::Node processorsNode, core::
         core::ProcessorConfig procCfg;
         YAML::Node procNode = iter->as<YAML::Node>();
 
-        checkRequiredField(&procNode, "name",
+        yaml::checkRequiredField(&procNode, "name", logger_,
         CONFIG_YAML_PROCESSORS_KEY);
         procCfg.name = procNode["name"].as<std::string>();
         procCfg.id = getOrGenerateId(&procNode);
@@ -126,7 +159,7 @@ void YamlConfiguration::parseProcessorNodeYaml(YAML::Node processorsNode, core::
 
         uuid = procCfg.id.c_str();
         logger_->log_debug("parseProcessorNode: name => [%s] id => [%s]", procCfg.name, procCfg.id);
-        checkRequiredField(&procNode, "class", CONFIG_YAML_PROCESSORS_KEY);
+        yaml::checkRequiredField(&procNode, "class", logger_, CONFIG_YAML_PROCESSORS_KEY);
         procCfg.javaClass = procNode["class"].as<std::string>();
         logger_->log_debug("parseProcessorNode: class => [%s]", procCfg.javaClass);
 
@@ -134,8 +167,7 @@ void YamlConfiguration::parseProcessorNodeYaml(YAML::Node processorsNode, core::
         auto lastOfIdx = procCfg.javaClass.find_last_of(".");
         if (lastOfIdx != std::string::npos) {
           lastOfIdx++;  // if a value is found, increment to move beyond the .
-          int nameLength = procCfg.javaClass.length() - lastOfIdx;
-          std::string processorName = procCfg.javaClass.substr(lastOfIdx, nameLength);
+          std::string processorName = procCfg.javaClass.substr(lastOfIdx);
           processor = this->createProcessor(processorName, procCfg.javaClass, uuid);
         } else {
           // Allow unqualified class names for core processors
@@ -216,7 +248,7 @@ void YamlConfiguration::parseProcessorNodeYaml(YAML::Node processorsNode, core::
 
         if (core::Property::StringToTime(procCfg.penalizationPeriod, penalizationPeriod, unit) && core::Property::ConvertTimeUnitToMS(penalizationPeriod, unit, penalizationPeriod)) {
           logger_->log_debug("convert: parseProcessorNode: penalizationPeriod => [%" PRId64 "] ms", penalizationPeriod);
-          processor->setPenalizationPeriodMsec(penalizationPeriod);
+          processor->setPenalizationPeriod(std::chrono::milliseconds{penalizationPeriod});
         }
 
         if (core::Property::StringToTime(procCfg.yieldPeriod, yieldPeriod, unit) && core::Property::ConvertTimeUnitToMS(yieldPeriod, unit, yieldPeriod)) {
@@ -282,7 +314,7 @@ void YamlConfiguration::parseRemoteProcessGroupYaml(YAML::Node *rpgNode, core::P
       for (YAML::const_iterator iter = rpgNode->begin(); iter != rpgNode->end(); ++iter) {
         YAML::Node currRpgNode = iter->as<YAML::Node>();
 
-        checkRequiredField(&currRpgNode, "name",
+        yaml::checkRequiredField(&currRpgNode, "name", logger_,
         CONFIG_YAML_REMOTE_PROCESS_GROUP_KEY);
         auto name = currRpgNode["name"].as<std::string>();
         id = getOrGenerateId(&currRpgNode);
@@ -370,7 +402,7 @@ void YamlConfiguration::parseRemoteProcessGroupYaml(YAML::Node *rpgNode, core::P
         group->setTransmitting(true);
         group->setURL(url);
 
-        checkRequiredField(&currRpgNode, "Input Ports",
+        yaml::checkRequiredField(&currRpgNode, "Input Ports", logger_,
         CONFIG_YAML_REMOTE_PROCESS_GROUP_KEY);
         YAML::Node inputPorts = currRpgNode["Input Ports"].as<YAML::Node>();
         if (inputPorts && inputPorts.IsSequence()) {
@@ -415,10 +447,10 @@ void YamlConfiguration::parseProvenanceReportingYaml(YAML::Node *reportNode, cor
 
   YAML::Node node = reportNode->as<YAML::Node>();
 
-  checkRequiredField(&node, "scheduling strategy",
+  yaml::checkRequiredField(&node, "scheduling strategy", logger_,
   CONFIG_YAML_PROVENANCE_REPORT_KEY);
   auto schedulingStrategyStr = node["scheduling strategy"].as<std::string>();
-  checkRequiredField(&node, "scheduling period",
+  yaml::checkRequiredField(&node, "scheduling period", logger_,
   CONFIG_YAML_PROVENANCE_REPORT_KEY);
   auto schedulingPeriodStr = node["scheduling period"].as<std::string>();
 
@@ -454,9 +486,9 @@ void YamlConfiguration::parseProvenanceReportingYaml(YAML::Node *reportNode, cor
       logger_->log_debug("ProvenanceReportingTask URL %s", urlStr);
     }
   }
-  checkRequiredField(&node, "port uuid", CONFIG_YAML_PROVENANCE_REPORT_KEY);
+  yaml::checkRequiredField(&node, "port uuid", logger_, CONFIG_YAML_PROVENANCE_REPORT_KEY);
   auto portUUIDStr = node["port uuid"].as<std::string>();
-  checkRequiredField(&node, "batch size", CONFIG_YAML_PROVENANCE_REPORT_KEY);
+  yaml::checkRequiredField(&node, "batch size", logger_, CONFIG_YAML_PROVENANCE_REPORT_KEY);
   auto batchSizeStr = node["batch size"].as<std::string>();
 
   logger_->log_debug("ProvenanceReportingTask port uuid %s", portUUIDStr);
@@ -480,17 +512,17 @@ void YamlConfiguration::parseControllerServices(YAML::Node *controllerServicesNo
       for (auto iter : *controllerServicesNode) {
         YAML::Node controllerServiceNode = iter.as<YAML::Node>();
         try {
-          checkRequiredField(&controllerServiceNode, "name",
+          yaml::checkRequiredField(&controllerServiceNode, "name", logger_,
           CONFIG_YAML_CONTROLLER_SERVICES_KEY);
-          checkRequiredField(&controllerServiceNode, "id",
+          yaml::checkRequiredField(&controllerServiceNode, "id", logger_,
           CONFIG_YAML_CONTROLLER_SERVICES_KEY);
           std::string type = "";
 
           try {
-            checkRequiredField(&controllerServiceNode, "class", CONFIG_YAML_CONTROLLER_SERVICES_KEY);
+            yaml::checkRequiredField(&controllerServiceNode, "class", logger_, CONFIG_YAML_CONTROLLER_SERVICES_KEY);
             type = controllerServiceNode["class"].as<std::string>();
           } catch (const std::invalid_argument &) {
-            checkRequiredField(&controllerServiceNode, "type", CONFIG_YAML_CONTROLLER_SERVICES_KEY);
+            yaml::checkRequiredField(&controllerServiceNode, "type", logger_, CONFIG_YAML_CONTROLLER_SERVICES_KEY);
             type = controllerServiceNode["type"].as<std::string>();
             logger_->log_debug("Using type %s for controller service node", type);
           }
@@ -498,8 +530,7 @@ void YamlConfiguration::parseControllerServices(YAML::Node *controllerServicesNo
           auto lastOfIdx = type.find_last_of(".");
           if (lastOfIdx != std::string::npos) {
             lastOfIdx++;  // if a value is found, increment to move beyond the .
-            int nameLength = type.length() - lastOfIdx;
-            type = type.substr(lastOfIdx, nameLength);
+            type = type.substr(lastOfIdx);
           }
 
           auto name = controllerServiceNode["name"].as<std::string>();
@@ -532,178 +563,44 @@ void YamlConfiguration::parseControllerServices(YAML::Node *controllerServicesNo
   }
 }
 
-void YamlConfiguration::parseConnectionYaml(YAML::Node *connectionsNode, core::ProcessGroup *parent) {
+void YamlConfiguration::parseConnectionYaml(YAML::Node* connectionsNode, core::ProcessGroup* parent) {
   if (!parent) {
     logger_->log_error("parseProcessNode: no parent group was provided");
     return;
   }
+  if (!connectionsNode || !connectionsNode->IsSequence()) {
+    return;
+  }
 
-  if (connectionsNode) {
-    if (connectionsNode->IsSequence()) {
-      for (YAML::const_iterator iter = connectionsNode->begin(); iter != connectionsNode->end(); ++iter) {
-        YAML::Node connectionNode = iter->as<YAML::Node>();
-        std::shared_ptr<minifi::Connection> connection = nullptr;
+  for (YAML::const_iterator iter = connectionsNode->begin(); iter != connectionsNode->end(); ++iter) {
+    YAML::Node connectionNode = iter->as<YAML::Node>();
+    std::shared_ptr<minifi::Connection> connection = nullptr;
 
-        // Configure basic connection
-        utils::Identifier uuid;
-        std::string id = getOrGenerateId(&connectionNode);
+    // Configure basic connection
+    std::string id = getOrGenerateId(&connectionNode);
 
-        // Default name to be same as ID
-        std::string name = id;
+    // Default name to be same as ID
+    // If name is specified in configuration, use the value
+    std::string name = connectionNode["name"].as<std::string>(id);
 
-        // If name is specified in configuration, use the value
-        if (connectionNode["name"]) {
-          name = connectionNode["name"].as<std::string>();
-        }
-
-        uuid = id;
-        connection = this->createConnection(name, uuid);
-        logger_->log_debug("Created connection with UUID %s and name %s", id, name);
-
-        // Configure connection source
-        if (connectionNode.as<YAML::Node>()["source relationship name"]) {
-          auto rawRelationship = connectionNode["source relationship name"].as<std::string>();
-          core::Relationship relationship(rawRelationship, "");
-          logger_->log_debug("parseConnection: relationship => [%s]", rawRelationship);
-          if (connection) {
-            connection->addRelationship(relationship);
-          }
-        } else if (connectionNode.as<YAML::Node>()["source relationship names"]) {
-          auto relList = connectionNode["source relationship names"];
-          if (connection) {
-            if (relList.IsSequence()) {
-              for (const auto &rel : relList) {
-                auto rawRelationship = rel.as<std::string>();
-                core::Relationship relationship(rawRelationship, "");
-                logger_->log_debug("parseConnection: relationship => [%s]", rawRelationship);
-                connection->addRelationship(relationship);
-              }
-            } else {
-              auto rawRelationship = relList.as<std::string>();
-              core::Relationship relationship(rawRelationship, "");
-              logger_->log_debug("parseConnection: relationship => [%s]", rawRelationship);
-              connection->addRelationship(relationship);
-            }
-          }
-        }
-
-        utils::Identifier srcUUID;
-
-        if (connectionNode["max work queue size"]) {
-          auto max_work_queue_str = connectionNode["max work queue size"].as<std::string>();
-          uint64_t max_work_queue_size = 0;
-          if (core::Property::StringToInt(max_work_queue_str, max_work_queue_size)) {
-            connection->setMaxQueueSize(max_work_queue_size);
-          }
-          logging::LOG_DEBUG(logger_) << "Setting " << max_work_queue_size << " as the max queue size for " << name;
-        }
-
-        if (connectionNode["max work queue data size"]) {
-          auto max_work_queue_str = connectionNode["max work queue data size"].as<std::string>();
-          uint64_t max_work_queue_data_size = 0;
-          if (core::Property::StringToInt(max_work_queue_str, max_work_queue_data_size)) {
-            connection->setMaxQueueDataSize(max_work_queue_data_size);
-          }
-          logging::LOG_DEBUG(logger_) << "Setting " << max_work_queue_data_size << " as the max queue data size for " << name;
-        }
-
-        if (connectionNode["source id"]) {
-          std::string connectionSrcProcId = connectionNode["source id"].as<std::string>();
-          srcUUID = connectionSrcProcId;
-          logger_->log_debug("Using 'source id' to match source with same id for "
-                             "connection '%s': source id => [%s]",
-                             name, connectionSrcProcId);
-        } else {
-          // if we don't have a source id, try to resolve using source name. config schema v2 will make this unnecessary
-          checkRequiredField(&connectionNode, "source name",
-          CONFIG_YAML_CONNECTIONS_KEY);
-          std::string connectionSrcProcName = connectionNode["source name"].as<std::string>();
-          utils::optional<utils::Identifier> tmpUUID = utils::Identifier::parse(connectionSrcProcName);
-          if (tmpUUID && NULL != parent->findProcessorById(tmpUUID.value())) {
-            // the source name is a remote port id, so use that as the source id
-            srcUUID = tmpUUID.value();
-            logger_->log_debug("Using 'source name' containing a remote port id to match the source for "
-                               "connection '%s': source name => [%s]",
-                               name, connectionSrcProcName);
-          } else {
-            // lastly, look the processor up by name
-            auto srcProcessor = parent->findProcessorByName(connectionSrcProcName);
-            if (NULL != srcProcessor) {
-              srcUUID = srcProcessor->getUUID();
-              logger_->log_debug("Using 'source name' to match source with same name for "
-                                 "connection '%s': source name => [%s]",
-                                 name, connectionSrcProcName);
-            } else {
-              // we ran out of ways to discover the source processor
-              logger_->log_error("Could not locate a source with name %s to create a connection", connectionSrcProcName);
-              throw std::invalid_argument("Could not locate a source with name " + connectionSrcProcName + " to create a connection ");
-            }
-          }
-        }
-        connection->setSourceUUID(srcUUID);
-
-        // Configure connection destination
-        utils::Identifier destUUID;
-        if (connectionNode["destination id"]) {
-          std::string connectionDestProcId = connectionNode["destination id"].as<std::string>();
-          destUUID = connectionDestProcId;
-          logger_->log_debug("Using 'destination id' to match destination with same id for "
-                             "connection '%s': destination id => [%s]",
-                             name, connectionDestProcId);
-        } else {
-          // we use the same logic as above for resolving the source processor
-          // for looking up the destination processor in absence of a processor id
-          checkRequiredField(&connectionNode, "destination name",
-          CONFIG_YAML_CONNECTIONS_KEY);
-          std::string connectionDestProcName = connectionNode["destination name"].as<std::string>();
-          utils::optional<utils::Identifier> tmpUUID = utils::Identifier::parse(connectionDestProcName);
-          if (tmpUUID && parent->findProcessorById(tmpUUID.value())) {
-            // the destination name is a remote port id, so use that as the dest id
-            destUUID = tmpUUID.value();
-            logger_->log_debug("Using 'destination name' containing a remote port id to match the destination for "
-                               "connection '%s': destination name => [%s]",
-                               name, connectionDestProcName);
-          } else {
-            // look the processor up by name
-            auto destProcessor = parent->findProcessorByName(connectionDestProcName);
-            if (NULL != destProcessor) {
-              destUUID = destProcessor->getUUID();
-              logger_->log_debug("Using 'destination name' to match destination with same name for "
-                                 "connection '%s': destination name => [%s]",
-                                 name, connectionDestProcName);
-            } else {
-              // we ran out of ways to discover the destination processor
-              logger_->log_error("Could not locate a destination with name %s to create a connection", connectionDestProcName);
-              throw std::invalid_argument("Could not locate a destination with name " + connectionDestProcName + " to create a connection");
-            }
-          }
-        }
-        connection->setDestinationUUID(destUUID);
-
-        if (connectionNode["flowfile expiration"]) {
-          uint64_t expirationDuration = 0;
-          std::string expiration = connectionNode["flowfile expiration"].as<std::string>();
-          TimeUnit unit;
-          if (core::Property::StringToTime(expiration, expirationDuration, unit) && core::Property::ConvertTimeUnitToMS(expirationDuration, unit, expirationDuration)) {
-            logger_->log_debug("parseConnection: flowfile expiration => [%d]", expirationDuration);
-            connection->setFlowExpirationDuration(expirationDuration);
-          }
-        }
-
-        if (connectionNode["drop empty"]) {
-          std::string strvalue = connectionNode["drop empty"].as<std::string>();
-          utils::optional<bool> optional_value = utils::StringUtils::toBool(strvalue);
-          if (optional_value) {
-            bool dropEmpty = optional_value.value();
-            connection->setDropEmptyFlowFiles(dropEmpty);
-          }
-        }
-
-        if (connection) {
-          parent->addConnection(connection);
-        }
-      }
+    const utils::optional<utils::Identifier> uuid = utils::Identifier::parse(id);
+    if (!uuid) {
+      logger_->log_debug("Incorrect connection UUID format.");
+      throw Exception(ExceptionType::GENERAL_EXCEPTION, "Incorrect connection UUID format.");
     }
+
+    connection = createConnection(name, uuid.value());
+    logger_->log_debug("Created connection with UUID %s and name %s", id, name);
+    const yaml::YamlConnectionParser connectionParser(connectionNode, name, gsl::not_null<core::ProcessGroup*>{ parent }, logger_);
+    connectionParser.configureConnectionSourceRelationshipsFromYaml(connection);
+    connection->setMaxQueueSize(connectionParser.getWorkQueueSizeFromYaml());
+    connection->setMaxQueueDataSize(connectionParser.getWorkQueueDataSizeFromYaml());
+    connection->setSourceUUID(connectionParser.getSourceUUIDFromYaml());
+    connection->setDestinationUUID(connectionParser.getDestinationUUIDFromYaml());
+    connection->setFlowExpirationDuration(connectionParser.getFlowFileExpirationFromYaml());
+    connection->setDropEmptyFlowFiles(connectionParser.getDropEmptyFromYaml());
+
+    parent->addConnection(connection);
   }
 }
 
@@ -720,10 +617,10 @@ void YamlConfiguration::parsePortYaml(YAML::Node *portNode, core::ProcessGroup *
   YAML::Node inputPortsObj = portNode->as<YAML::Node>();
 
   // Check for required fields
-  checkRequiredField(&inputPortsObj, "name",
+  yaml::checkRequiredField(&inputPortsObj, "name", logger_,
   CONFIG_YAML_REMOTE_PROCESS_GROUP_KEY);
   auto nameStr = inputPortsObj["name"].as<std::string>();
-  checkRequiredField(&inputPortsObj, "id",
+  yaml::checkRequiredField(&inputPortsObj, "id", logger_,
   CONFIG_YAML_REMOTE_PROCESS_GROUP_KEY,
                      "The field 'id' is required for "
                          "the port named '" + nameStr + "' in the YAML Config. If this port "
@@ -771,8 +668,7 @@ void YamlConfiguration::parsePortYaml(YAML::Node *portNode, core::ProcessGroup *
   }
 }
 
-void YamlConfiguration::parsePropertyValueSequence(const std::string& propertyName, const YAML::Node& propertyValueNode, std::shared_ptr<core::ConfigurableComponent> processor,
-    const std::string &yaml_section) {
+void YamlConfiguration::parsePropertyValueSequence(const std::string& propertyName, const YAML::Node& propertyValueNode, std::shared_ptr<core::ConfigurableComponent> processor) {
   for (auto iter : propertyValueNode) {
     if (iter.IsDefined()) {
       YAML::Node nodeVal = iter.as<YAML::Node>();
@@ -863,14 +759,13 @@ void YamlConfiguration::parseSingleProperty(const std::string& propertyName, con
   }
 }
 
-void YamlConfiguration::parsePropertyNodeElement(const std::string& propertyName, const YAML::Node& propertyValueNode, std::shared_ptr<core::ConfigurableComponent> processor,
-    const std::string &yaml_section) {
+void YamlConfiguration::parsePropertyNodeElement(const std::string& propertyName, const YAML::Node& propertyValueNode, std::shared_ptr<core::ConfigurableComponent> processor) {
   logger_->log_trace("Encountered %s", propertyName);
   if (propertyValueNode.IsNull() || !propertyValueNode.IsDefined()) {
     return;
   }
   if (propertyValueNode.IsSequence()) {
-    parsePropertyValueSequence(propertyName, propertyValueNode, processor, yaml_section);
+    parsePropertyValueSequence(propertyName, propertyValueNode, processor);
   } else {
     parseSingleProperty(propertyName, propertyValueNode, processor);
   }
@@ -883,7 +778,7 @@ void YamlConfiguration::parsePropertiesNodeYaml(YAML::Node *propertiesNode, std:
   for (const auto propertyElem : *propertiesNode) {
     const std::string propertyName = propertyElem.first.as<std::string>();
     const YAML::Node propertyValueNode = propertyElem.second;
-    parsePropertyNodeElement(propertyName, propertyValueNode, processor, yaml_section);
+    parsePropertyNodeElement(propertyName, propertyValueNode, processor);
   }
 
   validateComponentProperties(processor, component_name, yaml_section);
@@ -896,13 +791,11 @@ void YamlConfiguration::validateComponentProperties(const std::shared_ptr<Config
   for (const auto &prop_pair : component_properties) {
     if (prop_pair.second.getRequired()) {
       if (prop_pair.second.getValue().to_string().empty()) {
-        std::stringstream reason;
-        reason << "required property '" << prop_pair.second.getName() << "' is not set";
-        raiseComponentError(component_name, yaml_section, reason.str());
+        std::string reason = utils::StringUtils::join_pack("required property '", prop_pair.second.getName(), "' is not set");
+        raiseComponentError(component_name, yaml_section, reason);
       } else if (!prop_pair.second.getValue().validate(prop_pair.first).valid()) {
-        std::stringstream reason;
-        reason << "Property '" << prop_pair.second.getName() << "' is not valid";
-        raiseComponentError(component_name, yaml_section, reason.str());
+        std::string reason = utils::StringUtils::join_pack("the value '", prop_pair.first, "' is not valid for property '", prop_pair.second.getName(), "'");
+        raiseComponentError(component_name, yaml_section, reason);
       }
     }
   }
@@ -917,11 +810,8 @@ void YamlConfiguration::validateComponentProperties(const std::shared_ptr<Config
 
     for (const auto &dep_prop_key : dep_props) {
       if (component_properties.at(dep_prop_key).getValue().to_string().empty()) {
-        std::string reason("property '");
-        reason.append(prop_pair.second.getName());
-        reason.append("' depends on property '");
-        reason.append(dep_prop_key);
-        reason.append("' which is not set");
+        std::string reason = utils::StringUtils::join_pack("property '", prop_pair.second.getName(),
+            "' depends on property '", dep_prop_key, "' which is not set");
         raiseComponentError(component_name, yaml_section, reason);
       }
     }
@@ -939,13 +829,8 @@ void YamlConfiguration::validateComponentProperties(const std::shared_ptr<Config
     for (const auto &excl_pair : excl_props) {
       std::regex excl_expr(excl_pair.second);
       if (std::regex_match(component_properties.at(excl_pair.first).getValue().to_string(), excl_expr)) {
-        std::string reason("property '");
-        reason.append(prop_pair.second.getName());
-        reason.append("' is exclusive of property '");
-        reason.append(excl_pair.first);
-        reason.append("' values matching '");
-        reason.append(excl_pair.second);
-        reason.append("'");
+        std::string reason = utils::StringUtils::join_pack("property '", prop_pair.second.getName(),
+            "' must not be set when the value of property '", excl_pair.first, "' matches '", excl_pair.second, "'");
         raiseComponentError(component_name, yaml_section, reason);
       }
     }
@@ -958,9 +843,8 @@ void YamlConfiguration::validateComponentProperties(const std::shared_ptr<Config
     if (!prop_regex_str.empty()) {
       std::regex prop_regex(prop_regex_str);
       if (!std::regex_match(prop_pair.second.getValue().to_string(), prop_regex)) {
-        std::stringstream reason;
-        reason << "property '" << prop_pair.second.getName() << "' does not match validation pattern '" << prop_regex_str << "'";
-        raiseComponentError(component_name, yaml_section, reason.str());
+        std::string reason = utils::StringUtils::join_pack("property '", prop_pair.second.getName(), "' does not match validation pattern '", prop_regex_str, "'");
+        raiseComponentError(component_name, yaml_section, reason);
       }
     }
   }
@@ -999,26 +883,6 @@ std::string YamlConfiguration::getOrGenerateId(YAML::Node *yamlNode, const std::
     logger_->log_debug("Generating random ID: id => [%s]", id);
   }
   return id;
-}
-
-void YamlConfiguration::checkRequiredField(YAML::Node *yamlNode, const std::string &fieldName, const std::string &yamlSection, const std::string &errorMessage) {
-  std::string errMsg = errorMessage;
-  if (!yamlNode->as<YAML::Node>()[fieldName]) {
-    if (errMsg.empty()) {
-      // Build a helpful error message for the user so they can fix the
-      // invalid YAML config file, using the component name if present
-      errMsg =
-          yamlNode->as<YAML::Node>()["name"] ?
-              "Unable to parse configuration file for component named '" + yamlNode->as<YAML::Node>()["name"].as<std::string>() + "' as required field '" + fieldName + "' is missing" :
-              "Unable to parse configuration file as required field '" + fieldName + "' is missing";
-      if (!yamlSection.empty()) {
-        errMsg += " [in '" + yamlSection + "' section of configuration file]";
-      }
-    }
-    logging::LOG_ERROR(logger_) << errMsg;
-
-    throw std::invalid_argument(errMsg);
-  }
 }
 
 YAML::Node YamlConfiguration::getOptionalField(YAML::Node *yamlNode, const std::string &fieldName, const YAML::Node &defaultValue, const std::string &yamlSection,

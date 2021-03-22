@@ -44,7 +44,9 @@ enum Operation {
   UPDATE,
   VALIDATE,
   CLEAR,
-  TRANSFER
+  TRANSFER,
+  PAUSE,
+  RESUME
 };
 
 #define PAYLOAD_NO_STATUS 0
@@ -54,6 +56,21 @@ enum Operation {
 enum Direction {
   TRANSMIT,
   RECEIVE
+};
+
+struct AnnotatedValue : state::response::ValueNode {
+  using state::response::ValueNode::ValueNode;
+  using state::response::ValueNode::operator=;
+
+  utils::optional<std::reference_wrapper<const AnnotatedValue>> getAnnotation(const std::string& name) const {
+    auto it = annotations.find(name);
+    if (it == annotations.end()) {
+      return {};
+    }
+    return std::cref(it->second);
+  }
+
+  std::map<std::string, AnnotatedValue> annotations;
 };
 
 struct C2ContentResponse {
@@ -85,7 +102,7 @@ struct C2ContentResponse {
   // name applied to commands
   std::string name;
   // commands that correspond with the operation.
-  std::map<std::string, state::response::ValueNode> operation_arguments;
+  std::map<std::string, AnnotatedValue> operation_arguments;
 };
 
 /**
@@ -97,10 +114,10 @@ struct C2ContentResponse {
  */
 class C2Payload : public state::Update {
  public:
-  C2Payload(Operation op, std::string identifier, bool resp = false, bool isRaw = false);
-  C2Payload(Operation op, state::UpdateState state, std::string identifier, bool resp = false, bool isRaw = false);
-  explicit C2Payload(Operation op, bool resp = false, bool isRaw = false);
-  C2Payload(Operation op, state::UpdateState state, bool resp = false, bool isRaw = false);
+  C2Payload(Operation op, std::string identifier, bool isRaw = false);
+  C2Payload(Operation op, state::UpdateState state, std::string identifier, bool isRaw = false);
+  explicit C2Payload(Operation op, bool isRaw = false);
+  C2Payload(Operation op, state::UpdateState state, bool isRaw = false);
 
   C2Payload(const C2Payload&) = default;
   C2Payload(C2Payload&&) = default;
@@ -182,7 +199,6 @@ class C2Payload : public state::Update {
   Operation op_;
   bool raw_{ false };
   std::vector<char> raw_data_;
-  bool isResponse{ false };
   bool is_container_{ false };
   bool is_collapsible_{ true };
 };

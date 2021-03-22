@@ -50,9 +50,9 @@ class UpdateStatus {
  public:
   UpdateStatus(UpdateState state, int16_t reason = 0); // NOLINT
 
-  UpdateStatus(const UpdateStatus &other);
+  UpdateStatus(const UpdateStatus &other) = default;
 
-  UpdateStatus(const UpdateStatus &&other);
+  UpdateStatus(UpdateStatus &&other) = default;
 
   UpdateState getState() const;
 
@@ -60,9 +60,9 @@ class UpdateStatus {
 
   int16_t getReadonCode() const;
 
-  UpdateStatus &operator=(const UpdateStatus &&other);
+  UpdateStatus &operator=(UpdateStatus &&other) = default;
 
-  UpdateStatus &operator=(const UpdateStatus &other);
+  UpdateStatus &operator=(const UpdateStatus &other) = default;
  private:
   UpdateState state_;
   std::string error_;
@@ -72,18 +72,16 @@ class UpdateStatus {
 class Update {
  public:
   Update()
-      : status_(UpdateStatus(UpdateState::INITIATE, 0)) {
+      : status_(UpdateState::INITIATE, 0) {
   }
 
   Update(UpdateStatus status) // NOLINT
-      : status_(status) {
+      : status_(std::move(status)) {
   }
 
   Update(const Update &other) = default;
 
-  Update(const Update &&other)
-      : status_(std::move(other.status_)) {
-  }
+  Update(Update &&other) = default;
 
   virtual ~Update() = default;
 
@@ -95,10 +93,7 @@ class Update {
     return status_;
   }
 
-  Update &operator=(const Update &&other) {
-    status_ = std::move(other.status_);
-    return *this;
-  }
+  Update &operator=(Update &&other) = default;
 
   Update &operator=(const Update &other) = default;
 
@@ -120,12 +115,13 @@ class UpdateRunner : public utils::AfterExecute<Update> {
         delay_(delay) {
   }
 
-  explicit UpdateRunner(UpdateRunner && other)
-      : running_(std::move(other.running_)),
-        delay_(std::move(other.delay_)) {
-  }
+  UpdateRunner(const UpdateRunner &other) = delete;
+  UpdateRunner(UpdateRunner &&other) = delete;
 
   ~UpdateRunner() = default;
+
+  UpdateRunner& operator=(const UpdateRunner &other) = delete;
+  UpdateRunner& operator=(UpdateRunner &&other) = delete;
 
   virtual bool isFinished(const Update &result) {
     if ((result.getStatus().getState() == UpdateState::FULLY_APPLIED || result.getStatus().getState() == UpdateState::READ_COMPLETE) && *running_) {
@@ -134,7 +130,7 @@ class UpdateRunner : public utils::AfterExecute<Update> {
       return true;
     }
   }
-  virtual bool isCancelled(const Update &result) {
+  virtual bool isCancelled(const Update& /*result*/) {
     return !*running_;
   }
 
@@ -148,7 +144,16 @@ class UpdateRunner : public utils::AfterExecute<Update> {
   std::chrono::milliseconds delay_;
 };
 
-class StateController {
+class Pausable {
+ public:
+  virtual ~Pausable() = default;
+
+  virtual int16_t pause() = 0;
+
+  virtual int16_t resume() = 0;
+};
+
+class StateController : public Pausable {
  public:
   virtual ~StateController() = default;
 
@@ -165,8 +170,6 @@ class StateController {
   virtual int16_t stop() = 0;
 
   virtual bool isRunning() = 0;
-
-  virtual int16_t pause() = 0;
 };
 
 /**

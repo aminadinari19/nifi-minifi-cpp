@@ -61,7 +61,7 @@ Processor::Processor(const std::string& name)
   scheduling_period_nano_ = MINIMUM_SCHEDULING_NANOS;
   run_duration_nano_ = DEFAULT_RUN_DURATION;
   yield_period_msec_ = DEFAULT_YIELD_PERIOD_SECONDS * 1000;
-  _penalizationPeriodMsec = DEFAULT_PENALIZATION_PERIOD_SECONDS * 1000;
+  penalization_period_ = DEFAULT_PENALIZATION_PERIOD;
   max_concurrent_tasks_ = DEFAULT_MAX_CONCURRENT_TASKS;
   active_tasks_ = 0;
   yield_expiration_ = 0;
@@ -82,7 +82,7 @@ Processor::Processor(const std::string& name, const utils::Identifier &uuid)
   scheduling_period_nano_ = MINIMUM_SCHEDULING_NANOS;
   run_duration_nano_ = DEFAULT_RUN_DURATION;
   yield_period_msec_ = DEFAULT_YIELD_PERIOD_SECONDS * 1000;
-  _penalizationPeriodMsec = DEFAULT_PENALIZATION_PERIOD_SECONDS * 1000;
+  penalization_period_ = DEFAULT_PENALIZATION_PERIOD;
   max_concurrent_tasks_ = DEFAULT_MAX_CONCURRENT_TASKS;
   active_tasks_ = 0;
   yield_expiration_ = 0;
@@ -208,22 +208,7 @@ void Processor::removeConnection(std::shared_ptr<Connectable> conn) {
   }
 }
 
-bool Processor::flowFilesQueued() {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  if (_incomingConnections.size() == 0)
-    return false;
-
-  for (auto &&conn : _incomingConnections) {
-    std::shared_ptr<Connection> connection = std::static_pointer_cast<Connection>(conn);
-    if (connection->getQueueSize() > 0)
-      return true;
-  }
-
-  return false;
-}
-
-bool Processor::flowFilesOutGoingFull() {
+bool Processor::flowFilesOutGoingFull() const {
   std::lock_guard<std::mutex> lock(mutex_);
 
   for (const auto& connection_pair : out_going_connections_) {
@@ -285,7 +270,7 @@ bool Processor::isWorkAvailable() {
   try {
     for (const auto &conn : _incomingConnections) {
       std::shared_ptr<Connection> connection = std::static_pointer_cast<Connection>(conn);
-      if (connection->getQueueSize() > 0) {
+      if (connection->isWorkAvailable()) {
         hasWork = true;
         break;
       }

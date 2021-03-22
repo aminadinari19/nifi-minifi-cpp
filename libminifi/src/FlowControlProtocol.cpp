@@ -37,11 +37,11 @@ namespace apache {
 namespace nifi {
 namespace minifi {
 
-int FlowControlProtocol::connectServer(const char *host, uint16_t port) {
+int FlowControlProtocol::connectServer(const char* /*host*/, uint16_t /*port*/) {
   return 0;
 }
 
-int FlowControlProtocol::sendData(uint8_t *buf, int buflen) {
+int FlowControlProtocol::sendData(uint8_t* /*buf*/, int /*buflen*/) {
   return 0;
 }
 
@@ -193,7 +193,7 @@ int FlowControlProtocol::sendRegisterReq() {
   data = this->encode(data, this->_controller->getName());
 
   // send it
-  int status = sendData(buffer.data(), size);
+  int status = sendData(buffer.data(), gsl::narrow<int>(size));
   buffer.clear();
   if (status <= 0) {
     utils::file::FileUtils::close(_socket);
@@ -287,7 +287,7 @@ int FlowControlProtocol::sendReportReq() {
   data = this->encode(data, this->_controller->getName());
 
   // send it
-  int status = sendData(buffer.data(), size);
+  int status = sendData(buffer.data(), gsl::narrow<int>(size));
   buffer.clear();
   if (status <= 0) {
     utils::file::FileUtils::close(_socket);

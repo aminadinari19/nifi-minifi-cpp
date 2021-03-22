@@ -62,14 +62,11 @@ class StandardControllerServiceProvider : public ControllerServiceProvider, publ
         logger_(logging::LoggerFactory<StandardControllerServiceProvider>::getLogger()) {
   }
 
-  explicit StandardControllerServiceProvider(const StandardControllerServiceProvider && other)
-      : ControllerServiceProvider(std::move(other)),
-        agent_(std::move(other.agent_)),
-        extension_loader_(other.extension_loader_),
-        root_group_(std::move(other.root_group_)),
-        configuration_(other.configuration_),
-        logger_(logging::LoggerFactory<StandardControllerServiceProvider>::getLogger()) {
-  }
+  StandardControllerServiceProvider(const StandardControllerServiceProvider &other) = delete;
+  StandardControllerServiceProvider(StandardControllerServiceProvider &&other) = delete;
+
+  StandardControllerServiceProvider& operator=(const StandardControllerServiceProvider &other) = delete;
+  StandardControllerServiceProvider& operator=(StandardControllerServiceProvider &&other) = delete;
 
   void setRootGroup(std::shared_ptr<ProcessGroup> rg) {
     root_group_ = rg;
@@ -79,7 +76,7 @@ class StandardControllerServiceProvider : public ControllerServiceProvider, publ
     agent_ = agent;
   }
 
-  std::shared_ptr<ControllerServiceNode> createControllerService(const std::string &type, const std::string &fullType, const std::string &id, bool firstTimeAdded) {
+  std::shared_ptr<ControllerServiceNode> createControllerService(const std::string &type, const std::string &fullType, const std::string &id, bool /*firstTimeAdded*/) {
     std::shared_ptr<ControllerService> new_controller_service = extension_loader_.instantiate<ControllerService>(type, id);
 
     if (nullptr == new_controller_service) {
@@ -149,7 +146,7 @@ class StandardControllerServiceProvider : public ControllerServiceProvider, publ
     controller_map_->clear();
   }
 
-  void verifyCanStopReferencingComponents(std::shared_ptr<core::controller::ControllerServiceNode> &serviceNode) {
+  void verifyCanStopReferencingComponents(std::shared_ptr<core::controller::ControllerServiceNode>& /*serviceNode*/) {
   }
 
   std::vector<std::shared_ptr<core::controller::ControllerServiceNode>> unscheduleReferencingComponents(std::shared_ptr<core::controller::ControllerServiceNode> &serviceNode) {

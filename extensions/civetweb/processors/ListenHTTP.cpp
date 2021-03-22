@@ -20,6 +20,8 @@
  */
 #include "ListenHTTP.h"
 
+#include "utils/gsl.h"
+
 namespace org {
 namespace apache {
 namespace nifi {
@@ -99,7 +101,7 @@ void ListenHTTP::initialize() {
   setSupportedRelationships(relationships);
 }
 
-void ListenHTTP::onSchedule(core::ProcessContext *context, core::ProcessSessionFactory *sessionFactory) {
+void ListenHTTP::onSchedule(core::ProcessContext *context, core::ProcessSessionFactory* /*sessionFactory*/) {
   std::string basePath;
 
   if (!context->getProperty(BasePath.getName(), basePath)) {
@@ -230,7 +232,7 @@ void ListenHTTP::onSchedule(core::ProcessContext *context, core::ProcessSessionF
 
 ListenHTTP::~ListenHTTP() = default;
 
-void ListenHTTP::onTrigger(core::ProcessContext *context, core::ProcessSession *session) {
+void ListenHTTP::onTrigger(core::ProcessContext* /*context*/, core::ProcessSession *session) {
   logger_->log_debug("OnTrigger ListenHTTP");
   processIncomingFlowFile(session);
   processRequestBuffer(session);
@@ -343,7 +345,7 @@ void ListenHTTP::Handler::enqueueRequest(mg_connection *conn, const mg_request_i
   writeBody(conn, req_info);
 }
 
-bool ListenHTTP::Handler::handlePost(CivetServer *server, struct mg_connection *conn) {
+bool ListenHTTP::Handler::handlePost(CivetServer* /*server*/, struct mg_connection *conn) {
   auto req_info = mg_get_request_info(conn);
   if (!req_info) {
       logger_->log_error("ListenHTTP handling POST resulted in a null request");
@@ -377,7 +379,7 @@ bool ListenHTTP::Handler::authRequest(mg_connection *conn, const mg_request_info
   return authorized;
 }
 
-bool ListenHTTP::Handler::handleGet(CivetServer *server, struct mg_connection *conn) {
+bool ListenHTTP::Handler::handleGet(CivetServer* /*server*/, struct mg_connection *conn) {
   auto req_info = mg_get_request_info(conn);
   if (!req_info) {
       logger_->log_error("ListenHTTP handling GET resulted in a null request");
@@ -393,7 +395,7 @@ bool ListenHTTP::Handler::handleGet(CivetServer *server, struct mg_connection *c
   return true;
 }
 
-bool ListenHTTP::Handler::handleHead(CivetServer *server, struct mg_connection *conn) {
+bool ListenHTTP::Handler::handleHead(CivetServer* /*server*/, struct mg_connection *conn) {
   auto req_info = mg_get_request_info(conn);
   if (!req_info) {
     logger_->log_error("ListenHTTP handling HEAD resulted in a null request");
@@ -504,7 +506,7 @@ ListenHTTP::WriteCallback::WriteCallback(std::unique_ptr<io::BufferStream> reque
 }
 
 int64_t ListenHTTP::WriteCallback::process(const std::shared_ptr<io::BaseStream>& stream) {
-  return stream->write(const_cast<uint8_t*>(request_content_->getBuffer()), request_content_->size());
+  return stream->write(const_cast<uint8_t*>(request_content_->getBuffer()), gsl::narrow<int>(request_content_->size()));
 }
 
 bool ListenHTTP::isSecure() const {

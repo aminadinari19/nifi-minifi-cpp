@@ -31,6 +31,7 @@
 
 #include "core/ProcessContext.h"
 #include "core/ProcessSession.h"
+#include "utils/gsl.h"
 
 namespace org {
 namespace apache {
@@ -66,7 +67,7 @@ void UnfocusArchiveEntry::onTrigger(core::ProcessContext *context, core::Process
     ArchiveStack archiveStack;
     {
       std::string existingLensStack;
-    
+
       if (flowFile->getAttribute("lens.archive.stack", existingLensStack)) {
         logger_->log_info("FocusArchiveEntry loading existing lens context");
 
@@ -155,7 +156,7 @@ typedef struct {
 la_ssize_t UnfocusArchiveEntry::WriteCallback::write_cb(struct archive *, void *d, const void *buffer, size_t length) {
   auto data = static_cast<UnfocusArchiveEntryWriteData *>(d);
   const uint8_t *ui_buffer = static_cast<const uint8_t*>(buffer);
-  return data->stream->write(const_cast<uint8_t*>(ui_buffer), length);
+  return data->stream->write(const_cast<uint8_t*>(ui_buffer), gsl::narrow<int>(length));
 }
 
 int64_t UnfocusArchiveEntry::WriteCallback::process(const std::shared_ptr<io::BaseStream>& stream) {
@@ -172,7 +173,7 @@ int64_t UnfocusArchiveEntry::WriteCallback::process(const std::shared_ptr<io::Ba
   // Iterate entries & write from tmp file to archive
   char buf[8192];
   struct stat st;
-  struct archive_entry* entry;
+  struct archive_entry* entry = nullptr;
 
   for (const auto &entryMetadata : _archiveMetadata->entryMetadata) {
     entry = archive_entry_new();

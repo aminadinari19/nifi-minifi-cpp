@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "utils/gsl.h"
 #include "utils/StringUtils.h"
 
 namespace org {
@@ -56,7 +57,7 @@ core::Property LinuxPowerManagerService::LowBatteryThreshold(
     core::PropertyBuilder::createProperty("Low Battery Threshold")->withDescription("Battery threshold before which we will aggressively reduce. Should be a number from 1-100")->isRequired(true)
         ->withDefaultValue<int>(50)->build());
 
-bool LinuxPowerManagerService::isAboveMax(int new_tasks) {
+bool LinuxPowerManagerService::isAboveMax(int /*new_tasks*/) {
   return false;
 }
 
@@ -135,7 +136,7 @@ bool LinuxPowerManagerService::shouldReduce() {
   }
 
   // average
-  battery_level_ = battery_sum / paths_.size();
+  battery_level_ = battery_sum / gsl::narrow<int>(paths_.size());
 
   // only reduce if we're still going down OR we've triggered the low battery threshold
   if (battery_level_ < trigger_ && (battery_level_ < prev_level || battery_level_ < low_battery_trigger_)) {

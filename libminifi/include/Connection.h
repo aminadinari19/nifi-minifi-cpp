@@ -24,7 +24,6 @@
 #include <set>
 #include <string>
 #include <vector>
-#include <queue>
 #include <map>
 #include <mutex>
 #include <atomic>
@@ -35,6 +34,7 @@
 #include "core/Relationship.h"
 #include "core/FlowFile.h"
 #include "core/Repository.h"
+#include "utils/FlowFileQueue.h"
 
 namespace org {
 namespace apache {
@@ -141,7 +141,7 @@ class Connection : public core::Connectable, public std::enable_shared_from_this
   }
 
   // Check whether the queue is empty
-  bool isEmpty();
+  bool isEmpty() const;
   // Check whether the queue is full to apply back pressure
   bool isFull();
   // Get queue size
@@ -167,7 +167,7 @@ class Connection : public core::Connectable, public std::enable_shared_from_this
   void yield() override {}
 
   bool isWorkAvailable() override {
-    return !isEmpty();
+    return queue_.isWorkAvailable();
   }
 
   bool isRunning() override {
@@ -199,11 +199,11 @@ class Connection : public core::Connectable, public std::enable_shared_from_this
  private:
   bool drop_empty_;
   // Mutex for protection
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
   // Queued data size
   std::atomic<uint64_t> queued_data_size_;
   // Queue for the Flow File
-  std::queue<std::shared_ptr<core::FlowFile>> queue_;
+  utils::FlowFileQueue queue_;
   // flow repository
   // Logger
   std::shared_ptr<logging::Logger> logger_;

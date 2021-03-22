@@ -94,7 +94,7 @@ public:
         port.port_id = const_cast<char*>(port_str.c_str());
         const char * instance_str = "nifi";
         instance_ = create_instance(instance_str, &port);
-        add_custom_processor(processor_name.c_str(), callback);
+        add_custom_processor(processor_name.c_str(), callback, nullptr);
         processor_ = create_processor(processor_name.c_str(), instance_);
     }
 
@@ -138,7 +138,8 @@ public:
   }
 
   ~TestControllerWithTemporaryWorkingDirectory() {
-    chdir(old_cwd_);
+    int success = chdir(old_cwd_);
+    (void) success;
     free(old_cwd_);
   }
 

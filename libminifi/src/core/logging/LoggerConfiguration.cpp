@@ -63,7 +63,7 @@ const char* LoggerConfiguration::spdlog_default_pattern = "[%Y-%m-%d %H:%M:%S.%e
 std::vector<std::string> LoggerProperties::get_keys_of_type(const std::string &type) {
   std::vector<std::string> appenders;
   std::string prefix = type + ".";
-  for (auto const & entry : properties_) {
+  for (auto const & entry : getProperties()) {
     if (entry.first.rfind(prefix, 0) == 0 && entry.first.find(".", prefix.length() + 1) == std::string::npos) {
       appenders.push_back(entry.first);
     }
@@ -74,8 +74,8 @@ std::vector<std::string> LoggerProperties::get_keys_of_type(const std::string &t
 LoggerConfiguration::LoggerConfiguration()
     : root_namespace_(create_default_root()),
       loggers(std::vector<std::shared_ptr<LoggerImpl>>()),
-      shorten_names_(false),
-      formatter_(std::make_shared<spdlog::pattern_formatter>(spdlog_default_pattern)) {
+      formatter_(std::make_shared<spdlog::pattern_formatter>(spdlog_default_pattern)),
+      shorten_names_(false) {
   controller_ = std::make_shared<LoggerControl>();
   logger_ = std::shared_ptr<LoggerImpl>(
       new LoggerImpl(core::getClassName<LoggerConfiguration>(), controller_, get_logger(nullptr, root_namespace_, core::getClassName<LoggerConfiguration>(), formatter_)));

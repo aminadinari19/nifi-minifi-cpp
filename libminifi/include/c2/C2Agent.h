@@ -64,10 +64,11 @@ class C2Agent : public state::UpdateController {
  public:
   static constexpr const char* UPDATE_NAME = "C2UpdatePolicy";
 
-  C2Agent(core::controller::ControllerServiceProvider* controller,
+  C2Agent(core::controller::ControllerServiceProvider *controller,
+          state::Pausable *pause_handler,
           const std::shared_ptr<state::StateMonitor> &updateSink,
           const std::shared_ptr<Configure> &configure,
-          const std::shared_ptr<utils::file::FileSystem>& filesystem = std::make_shared<utils::file::FileSystem>());
+          const std::shared_ptr<utils::file::FileSystem> &filesystem = std::make_shared<utils::file::FileSystem>());
   virtual ~C2Agent() noexcept {
     delete protocol_.load();
   }
@@ -86,6 +87,8 @@ class C2Agent : public state::UpdateController {
     std::lock_guard<std::mutex> lock(heartbeat_mutex);
     return heart_beat_period_;
   }
+
+  utils::optional<std::string> fetchFlow(const std::string& uri) const;
 
  protected:
   void restart_agent();
@@ -148,7 +151,7 @@ class C2Agent : public state::UpdateController {
   /**
    * Updates a property
    */
-  bool update_property(const std::string &property_name, const std::string &property_value,  bool persist = false);
+  bool update_property(const std::string &property_name, const std::string &property_value,  bool persist);
 
   /**
    * Creates configuration options C2 payload for response
@@ -160,8 +163,6 @@ class C2Agent : public state::UpdateController {
   utils::TaskRescheduleInfo consume();
 
   bool handleConfigurationUpdate(const C2ContentResponse &resp);
-
-  utils::optional<std::string> fetchFlow(const std::string& uri) const;
 
  protected:
   std::timed_mutex metrics_mutex_;
@@ -205,6 +206,8 @@ class C2Agent : public state::UpdateController {
 
   // controller service provider reference.
   core::controller::ControllerServiceProvider* controller_;
+
+  state::Pausable* pause_handler_;
 
   // shared pointer to the configuration of this agent
   std::shared_ptr<Configure> configuration_;

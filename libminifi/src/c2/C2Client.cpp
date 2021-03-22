@@ -58,26 +58,16 @@ bool C2Client::isC2Enabled() const {
   return utils::StringUtils::toBool(c2_enable_str).value_or(false);
 }
 
-void C2Client::initialize(core::controller::ControllerServiceProvider *controller, const std::shared_ptr<state::StateMonitor> &update_sink) {
-  std::string class_str;
-  configuration_->get("nifi.c2.agent.class", "c2.agent.class", class_str);
-  configuration_->setAgentClass(class_str);
-
+void C2Client::initialize(core::controller::ControllerServiceProvider *controller, state::Pausable *pause_handler, const std::shared_ptr<state::StateMonitor> &update_sink) {
   if (!isC2Enabled()) {
     return;
   }
 
-  if (class_str.empty()) {
-    logger_->log_error("Class name must be defined when C2 is enabled");
-    throw std::runtime_error("Class name must be defined when C2 is enabled");
+  if (!configuration_->getAgentClass()) {
+    logger_->log_info("Agent class is not predefined");
   }
 
-  std::string identifier_str;
-  if (!configuration_->get("nifi.c2.agent.identifier", "c2.agent.identifier", identifier_str) || identifier_str.empty()) {
-    // set to the flow controller's identifier
-    identifier_str = getControllerUUID().to_string();
-  }
-  configuration_->setAgentIdentifier(identifier_str);
+  configuration_->setFallbackAgentIdentifier(getControllerUUID().to_string());
 
   if (initialized_ && !flow_update_) {
     return;
@@ -102,8 +92,7 @@ void C2Client::initialize(core::controller::ControllerServiceProvider *controlle
       }
       auto identifier = std::dynamic_pointer_cast<state::response::AgentIdentifier>(processor);
       if (identifier != nullptr) {
-        identifier->setIdentifier(identifier_str);
-        identifier->setAgentClass(class_str);
+        identifier->setAgentIdentificationProvider(configuration_);
       }
       auto monitor = std::dynamic_pointer_cast<state::response::AgentMonitor>(processor);
       if (monitor != nullptr) {
@@ -129,10 +118,19 @@ void C2Client::initialize(core::controller::ControllerServiceProvider *controlle
   loadC2ResponseConfiguration("nifi.c2.root.class.definitions");
 
   if (!initialized_) {
-    c2_agent_ = std::unique_ptr<c2::C2Agent>(new c2::C2Agent(controller, update_sink, configuration_, filesystem_));
+    // C2Agent is initialized once, meaning that a C2-triggered flow/configuration update
+    // might not be equal to a fresh restart
+    c2_agent_ = std::unique_ptr<c2::C2Agent>(new c2::C2Agent(controller, pause_handler, update_sink, configuration_, filesystem_));
     c2_agent_->start();
     initialized_ = true;
   }
+}
+
+utils::optional<std::string> C2Client::fetchFlow(const std::string& uri) const {
+  if (!c2_agent_) {
+    return {};
+  }
+  return c2_agent_->fetchFlow(uri);
 }
 
 void C2Client::initializeComponentMetrics() {

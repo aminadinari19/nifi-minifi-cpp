@@ -27,7 +27,7 @@
 #include "utils/IntegrationTestUtils.h"
 #include "TestServer.h"
 
-int log_message(const struct mg_connection *conn, const char *message) {
+int log_message(const struct mg_connection* /*conn*/, const char *message) {
   puts(message);
   return 1;
 }
@@ -43,7 +43,9 @@ public:
         server(nullptr) {
   }
 
-  void setUrl(const std::string &url, ServerAwareHandler *handler);
+  virtual void setUrl(const std::string &url, ServerAwareHandler *handler);
+
+  void setC2Url(const std::string& heartbeat_path, const std::string& acknowledge_path);
 
   void shutdownBeforeFlowController() override {
     server.reset();
@@ -68,21 +70,30 @@ public:
 };
 
 void HTTPIntegrationBase::setUrl(const std::string &url, ServerAwareHandler *handler) {
-  parse_http_components(url, port, scheme, path);
-  CivetCallbacks callback{};
+  std::string url_port, url_scheme, url_path;
+  parse_http_components(url, url_port, url_scheme, url_path);
   if (server) {
-    server->addHandler(path, handler);
+    if (url_port != "0" && url_port != port) {
+      throw std::logic_error("Inconsistent port requirements");
+    }
+    if (url_scheme != scheme) {
+      throw std::logic_error("Inconsistent scheme requirements");
+    }
+    server->addHandler(url_path, handler);
     return;
   }
+  // initialize server
+  scheme = url_scheme;
+  port = url_port;
+  CivetCallbacks callback{};
   if (scheme == "https" && !key_dir.empty()) {
     std::string cert = key_dir + "nifi-cert.pem";
-    memset(&callback, 0, sizeof(callback));
     callback.init_ssl = ssl_enable;
     port += "s";
     callback.log_message = log_message;
-    server = utils::make_unique<TestServer>(port, path, handler, &callback, cert, cert);
+    server = utils::make_unique<TestServer>(port, url_path, handler, &callback, cert, cert);
   } else {
-    server = utils::make_unique<TestServer>(port, path, handler);
+    server = utils::make_unique<TestServer>(port, url_path, handler);
   }
   bool secure{false};
   if (port == "0" || port == "0s") {
@@ -92,13 +103,23 @@ void HTTPIntegrationBase::setUrl(const std::string &url, ServerAwareHandler *han
       port += "s";
     }
   }
-  std::string c2_url = std::string("http") + (secure ? "s" : "") + "://localhost:" + getWebPort() + path;
+  std::string c2_url = std::string("http") + (secure ? "s" : "") + "://localhost:" + getWebPort() + url_path;
   configuration->set("nifi.c2.rest.url", c2_url);
   configuration->set("nifi.c2.rest.url.ack", c2_url);
 }
 
+void HTTPIntegrationBase::setC2Url(const std::string &heartbeat_path, const std::string &acknowledge_path) {
+  if (port.empty()) {
+    throw std::logic_error("Port is not yet initialized");
+  }
+  bool secure = port.back() == 's';
+  std::string base = std::string("http") + (secure ? "s" : "") + "://localhost:" + getWebPort();
+  configuration->set("nifi.c2.rest.url", base + heartbeat_path);
+  configuration->set("nifi.c2.rest.url.ack", base + acknowledge_path);
+}
+
 class VerifyC2Base : public HTTPIntegrationBase {
-public:
+ public:
   void testSetup() override {
     LogTestController::getInstance().setDebug<utils::HTTPClient>();
     LogTestController::getInstance().setDebug<LogTestController>();
@@ -114,6 +135,7 @@ public:
 
   void cleanup() override {
     LogTestController::getInstance().reset();
+    HTTPIntegrationBase::cleanup();
   }
 };
 
@@ -132,7 +154,7 @@ class VerifyC2Describe : public VerifyC2Base {
 
   void runAssertions() override {
     // This class is never used for running assertions, but we are forced to wait for DescribeManifestHandler to verifyJsonHasAgentManifest
-    // if we were to log something on finished verification, we could poll on finding it 
+    // if we were to log something on finished verification, we could poll on finding it
     std::this_thread::sleep_for(std::chrono::milliseconds(wait_time_));
   }
 };
@@ -159,11 +181,45 @@ public:
 
   void cleanup() override {
     LogTestController::getInstance().reset();
+    HTTPIntegrationBase::cleanup();
   }
 
   void runAssertions() override {
     using org::apache::nifi::minifi::utils::verifyLogLinePresenceInPollTime;
     assert(verifyLogLinePresenceInPollTime(std::chrono::seconds(10), "Starting to reload Flow Controller with flow control name MiNiFi Flow, version"));
+  }
+};
+
+class VerifyFlowFetched : public HTTPIntegrationBase {
+ public:
+  using HTTPIntegrationBase::HTTPIntegrationBase;
+
+  void testSetup() override {
+    LogTestController::getInstance().setInfo<minifi::FlowController>();
+    LogTestController::getInstance().setDebug<minifi::utils::HTTPClient>();
+    LogTestController::getInstance().setDebug<minifi::c2::RESTSender>();
+    LogTestController::getInstance().setDebug<minifi::c2::C2Agent>();
+  }
+
+  void configureC2() override {
+    configuration->set("nifi.c2.agent.protocol.class", "RESTSender");
+    configuration->set("nifi.c2.enable", "true");
+    configuration->set("nifi.c2.agent.class", "test");
+    configuration->set("nifi.c2.agent.heartbeat.period", "1000");
+  }
+
+  void setFlowUrl(const std::string& url) {
+    configuration->set(minifi::Configure::nifi_c2_flow_url, url);
+  }
+
+  void cleanup() override {
+    LogTestController::getInstance().reset();
+    HTTPIntegrationBase::cleanup();
+  }
+
+  void runAssertions() override {
+    using org::apache::nifi::minifi::utils::verifyLogLinePresenceInPollTime;
+    assert(verifyLogLinePresenceInPollTime(std::chrono::seconds(10), "Successfully fetched valid flow configuration"));
   }
 };
 
@@ -185,7 +241,7 @@ class VerifyC2UpdateAgent : public VerifyC2Update {
 
   void runAssertions() override {
     using org::apache::nifi::minifi::utils::verifyLogLinePresenceInPollTime;
-    assert(verifyLogLinePresenceInPollTime(std::chrono::seconds(10), "removing file", "May not have command processor"));
+    assert(verifyLogLinePresenceInPollTime(std::chrono::seconds(10), "removing file", "Executed update command"));
   }
 };
 

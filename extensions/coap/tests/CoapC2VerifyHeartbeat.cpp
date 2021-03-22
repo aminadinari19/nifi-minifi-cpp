@@ -63,7 +63,7 @@ class VerifyCoAPServer : public CoapIntegrationBase {
     dir = testController.createTempDirectory(format);
   }
 
-  void testSetup() {
+  void testSetup() override {
     LogTestController::getInstance().setDebug<utils::HTTPClient>();
     LogTestController::getInstance().setOff<processors::InvokeHTTP>();
     LogTestController::getInstance().setDebug<minifi::c2::RESTReceiver>();
@@ -78,11 +78,12 @@ class VerifyCoAPServer : public CoapIntegrationBase {
     file.close();
   }
 
-  void cleanup() {
+  void cleanup() override {
     unlink(ss.str().c_str());
+    CoapIntegrationBase::cleanup();
   }
 
-  void runAssertions() {
+  void runAssertions() override {
     using org::apache::nifi::minifi::utils::verifyLogLinePresenceInPollTime;
     assert(verifyLogLinePresenceInPollTime(std::chrono::seconds(3),
         "Received ack. version 3. number of operations 1",
@@ -91,7 +92,7 @@ class VerifyCoAPServer : public CoapIntegrationBase {
         "Received op 1, with id id and operand operand"));
   }
 
-  void queryRootProcessGroup(std::shared_ptr<core::ProcessGroup> pg) {
+  void queryRootProcessGroup(std::shared_ptr<core::ProcessGroup> pg) override {
     std::shared_ptr<core::Processor> proc = pg->findProcessorByName("invoke");
     assert(proc != nullptr);
 

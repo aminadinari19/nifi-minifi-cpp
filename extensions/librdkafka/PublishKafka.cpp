@@ -27,6 +27,7 @@
 #include <set>
 #include <vector>
 
+#include "utils/gsl.h"
 #include "utils/TimeUtil.h"
 #include "utils/StringUtils.h"
 #include "utils/GeneralUtils.h"
@@ -50,8 +51,6 @@ namespace processors {
 #define DELIVERY_BEST_EFFORT "0"
 #define SECURITY_PROTOCOL_PLAINTEXT "plaintext"
 #define SECURITY_PROTOCOL_SSL "ssl"
-#define SECURITY_PROTOCOL_SASL_PLAINTEXT "sasl_plaintext"
-#define SECURITY_PROTOCOL_SASL_SSL "sasl_ssl"
 #define KAFKA_KEY_ATTRIBUTE "kafka.key"
 
 const core::Property PublishKafka::SeedBrokers(
@@ -126,7 +125,13 @@ const core::Property PublishKafka::CompressCodec(
 const core::Property PublishKafka::MaxFlowSegSize(
     core::PropertyBuilder::createProperty("Max Flow Segment Size")->withDescription("Maximum flow content payload segment size for the kafka record. 0 B means unlimited.")
         ->isRequired(false)->withDefaultValue<core::DataSizeValue>("0 B")->build());
-const core::Property PublishKafka::SecurityProtocol("Security Protocol", "Protocol used to communicate with brokers", "");
+const core::Property PublishKafka::SecurityProtocol(
+        core::PropertyBuilder::createProperty("Security Protocol")
+        ->withDescription("Protocol used to communicate with brokers")
+        ->withDefaultValue<std::string>(SECURITY_PROTOCOL_PLAINTEXT)
+        ->withAllowableValues<std::string>({SECURITY_PROTOCOL_PLAINTEXT, SECURITY_PROTOCOL_SSL})
+        ->isRequired(true)
+        ->build());
 const core::Property PublishKafka::SecurityCA("Security CA", "File or directory path to CA certificate(s) for verifying the broker's key", "");
 const core::Property PublishKafka::SecurityCert("Security Cert", "Path to client's public key (PEM) used for authentication", "");
 const core::Property PublishKafka::SecurityPrivateKey("Security Private Key", "Path to client's private key (PEM) used for authentication", "");
@@ -385,7 +390,7 @@ class ReadCallback : public InputStreamCallback {
     status_ = 0;
     called_ = true;
 
-    gsl_Expects(max_seg_size_ != 0 || flow_size_ == 0 && "max_seg_size_ == 0 implies flow_size_ == 0");
+    gsl_Expects(max_seg_size_ != 0 || (flow_size_ == 0 && "max_seg_size_ == 0 implies flow_size_ == 0"));
     // ^^ therefore checking max_seg_size_ == 0 handles both division by zero and flow_size_ == 0 cases
     const size_t reserved_msg_capacity = max_seg_size_ == 0 ? 1 : utils::intdiv_ceil(flow_size_, max_seg_size_);
     messages_->modifyResult(flow_file_index_, [reserved_msg_capacity](FlowFileResult& flow_file) {
@@ -403,7 +408,7 @@ class ReadCallback : public InputStreamCallback {
     }
 
     for (size_t segment_num = 0; read_size_ < flow_size_; ++segment_num) {
-      const int readRet = stream->read(buffer.data(), buffer.size());
+      const int readRet = stream->read(buffer.data(), gsl::narrow<int>(buffer.size()));
       if (readRet < 0) {
         status_ = -1;
         error_ = "Failed to read from stream";
@@ -438,7 +443,7 @@ class ReadCallback : public InputStreamCallback {
   const size_t flow_file_index_;
   int status_ = 0;
   std::string error_;
-  int read_size_ = 0;
+  uint32_t read_size_ = 0;
   bool called_ = false;
   const bool fail_empty_flow_files_ = true;
   const std::shared_ptr<logging::Logger> logger_;
@@ -497,7 +502,7 @@ void PublishKafka::initialize() {
   setSupportedRelationships(relationships);
 }
 
-void PublishKafka::onSchedule(const std::shared_ptr<core::ProcessContext> &context, const std::shared_ptr<core::ProcessSessionFactory> &sessionFactory) {
+void PublishKafka::onSchedule(const std::shared_ptr<core::ProcessContext> &context, const std::shared_ptr<core::ProcessSessionFactory>& /*sessionFactory*/) {
   interrupted_ = false;
 
   // Try to get a KafkaConnection
@@ -727,6 +732,8 @@ bool PublishKafka::configureNewConnection(const std::shared_ptr<core::ProcessCon
           throw Exception(PROCESS_SCHEDULE_EXCEPTION, error_msg);
         }
       }
+    } else if (value == SECURITY_PROTOCOL_PLAINTEXT) {
+      // Do nothing
     } else {
       auto error_msg = utils::StringUtils::join_pack("PublishKafka: unknown Security Protocol: ", value);
       throw Exception(PROCESS_SCHEDULE_EXCEPTION, error_msg);
