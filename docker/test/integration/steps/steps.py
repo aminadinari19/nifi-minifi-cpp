@@ -46,13 +46,11 @@ def step_impl(context, processor_type, property, property_value):
     context.execute_steps("given a {processor_type} processor with the \"{property}\" property set to \"{property_value}\" in the \"{cluster_name}\" flow".
                           format(processor_type=processor_type, property=property, property_value=property_value, cluster_name="primary_cluster"))
 
-
 @given("a {processor_type} processor in the \"{cluster_name}\" flow")
 @given("a {processor_type} processor in a \"{cluster_name}\" flow")
 def step_impl(context, processor_type, cluster_name):
     context.execute_steps("given a {processor_type} processor with the \"{property}\" property set to \"{property_value}\" in the \"{cluster_name}\" flow".
                           format(processor_type=processor_type, property=None, property_value=None, cluster_name=cluster_name))
-
 
 @given("a set of processors in the \"{cluster_name}\" flow")
 def step_impl(context, cluster_name):
@@ -314,3 +312,9 @@ def step_impl(context, cluster_name):
 @then("the object on the \"{cluster_name}\" Azure storage server is \"{object_data}\"")
 def step_impl(context, cluster_name, object_data):
     context.test.check_azure_storage_server_data(cluster_name, object_data)
+
+
+@then("the flowfile has an attribute called \"{hash}\" set to {hash_value}")
+def step_impl(context,hash,hash_value):
+    pass
+
