@@ -315,6 +315,7 @@ def step_impl(context, cluster_name, object_data):
 
 
 @then("the flowfile has an attribute called \"{hash}\" set to {hash_value}")
-def step_impl(context,hash,hash_value):
+def step_impl(context, hash, hash_value):
+    context.test.log_nifi_output();
     pass
 
