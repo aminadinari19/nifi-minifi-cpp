@@ -272,7 +272,6 @@ def step_impl(context, content, file_name, path, seconds):
 def step_impl(context, content, duration):
     context.test.check_for_file_with_content_generated(content, timeparse(duration))
 
-
 @then("{number_of_files:d} flowfiles are placed in the monitored directory in {duration}")
 @then("{number_of_files:d} flowfile is placed in the monitored directory in {duration}")
 def step_impl(context, number_of_files, duration):
@@ -316,6 +315,5 @@ def step_impl(context, cluster_name, object_data):
 
 @then("the flowfile has an attribute called \"{hash}\" set to {hash_value}")
 def step_impl(context, hash, hash_value):
-    context.test.log_nifi_output();
-    pass
-
+    line = "key:" + hash + " value:" + hash_value
+    context.test.check_log_contents(line)

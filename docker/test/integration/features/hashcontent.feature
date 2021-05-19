@@ -21,8 +21,8 @@ Scenario Outline: HashContent adds hash attribute to flowfiles
   Examples:
     | content  | hash_algorithm | hash_value                                                       |
     | "test"   | MD5            | 098f6bcd4621d373cade4e832627b4f6                                 |
-    | "test"   | SHA1           | a94a8fe5ccb19ba61c4c0873d391e987982fbbd3                         |
-    | "test"   | SHA256         | 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 |
-    | "coffee" | MD5            | 24eb05d18318ac2db8b2b959315d10f2                                 |
-    | "coffee" | SHA1           | 44213f9f4d59b557314fadcd233232eebcac8012                         |
-    | "coffee" | SHA256         | 37290d74ac4d186e3a8e5785d259d2ec04fac91ae28092e7620ec8bc99e830aa |
+    #| "test"   | SHA1           | a94a8fe5ccb19ba61c4c0873d391e987982fbbd3                         |
+    #| "test"   | SHA256         | 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 |
+    #| "coffee" | MD5            | 24eb05d18318ac2db8b2b959315d10f2                                 |
+    #| "coffee" | SHA1           | 44213f9f4d59b557314fadcd233232eebcac8012                         |
+    #| "coffee" | SHA256         | 37290d74ac4d186e3a8e5785d259d2ec04fac91ae28092e7620ec8bc99e830aa |
