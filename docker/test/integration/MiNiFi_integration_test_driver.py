@@ -222,6 +222,6 @@ class MiNiFi_integration_test():
         startup_success = True
         for cluster in self.clusters.values():
             #logging.error("Inside if")
-            startup_success = cluster.wait_for_app_logs(line, 60)
+            startup_success = cluster.wait_for_app_logs(line, 120)
             #logging.error("startup: " + startup_success)
         assert startup_success
