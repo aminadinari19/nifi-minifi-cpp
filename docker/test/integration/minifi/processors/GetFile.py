@@ -6,8 +6,7 @@ class GetFile(Processor):
         super(GetFile, self).__init__(
             'GetFile',
             properties={
-                'Input Directory': input_dir,
-                'Keep Source File': 'false'
+                'Input Directory': input_dir
             },
             schedule=schedule,
             auto_terminate=['success'])
