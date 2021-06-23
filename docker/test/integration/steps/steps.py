@@ -172,6 +172,10 @@ def step_impl(context):
 def step_impl(context, content, path):
     context.test.add_test_data(path, content)
 
+@given("an empty file is present in \"{path}\"")
+def step_impl(context,path):
+    context.test.add_test_data(path)
+
 
 @given("a file with filename \"{file_name}\" and content \"{content}\" is present in \"{path}\"")
 def step_impl(context, file_name, content, path):
