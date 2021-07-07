@@ -263,6 +263,15 @@ class MiNiFi_integration_test():
         cluster = self.acquire_cluster(cluster_name)
         assert cluster.check_azure_storage_server_data(object_data)
 
+
     def wait_for_kafka_consumer_to_be_registered(self, cluster_name):
         cluster = self.acquire_cluster(cluster_name)
         assert cluster.wait_for_kafka_consumer_to_be_registered()
+
+    def check_log_contents(self,line):
+        startup_success = True
+        for cluster in self.clusters.values():
+            #logging.error("Inside if")
+            startup_success = cluster.wait_for_app_logs(line, 120)
+            #logging.error("startup: " + startup_success)
+        assert startup_success

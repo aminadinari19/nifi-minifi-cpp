@@ -54,7 +54,6 @@ def step_impl(context, processor_type, property, property_value):
     context.execute_steps("given a {processor_type} processor with the \"{property}\" property set to \"{property_value}\" in the \"{cluster_name}\" flow".
                           format(processor_type=processor_type, property=property, property_value=property_value, cluster_name="primary_cluster"))
 
-
 @given("a {processor_type} processor in the \"{cluster_name}\" flow")
 @given("a {processor_type} processor in a \"{cluster_name}\" flow")
 def step_impl(context, processor_type, cluster_name):
@@ -65,7 +64,6 @@ def step_impl(context, processor_type, cluster_name):
 @given("a {processor_type} processor")
 def step_impl(context, processor_type):
     context.execute_steps("given a {processor_type} processor in the \"{cluster_name}\" flow".format(processor_type=processor_type, cluster_name="primary_cluster"))
-
 
 @given("a set of processors in the \"{cluster_name}\" flow")
 def step_impl(context, cluster_name):
@@ -242,6 +240,9 @@ def step_impl(context):
 def step_impl(context, content, path):
     context.test.add_test_data(path, content)
 
+@given("an empty file is present in \"{path}\"")
+def step_impl(context,path):
+    context.test.add_test_data(path,"")
 
 @given("a file with filename \"{file_name}\" and content \"{content}\" is present in \"{path}\"")
 def step_impl(context, file_name, content, path):
@@ -479,7 +480,6 @@ def step_impl(context, duration, contents):
 def step_impl(context, lower_bound, upper_bound, duration):
     context.test.check_for_num_file_range_generated(lower_bound, upper_bound, timeparse(duration))
 
-
 @then("{number_of_files:d} flowfiles are placed in the monitored directory in {duration}")
 @then("{number_of_files:d} flowfile is placed in the monitored directory in {duration}")
 def step_impl(context, number_of_files, duration):
@@ -519,3 +519,14 @@ def step_impl(context, cluster_name):
 @then("the object on the \"{cluster_name}\" Azure storage server is \"{object_data}\"")
 def step_impl(context, cluster_name, object_data):
     context.test.check_azure_storage_server_data(cluster_name, object_data)
+
+
+@then("the flowfile has an attribute called \"{hash}\" set to {hash_value}")
+def step_impl(context, hash, hash_value):
+    line = "key:" + hash + " value:" + hash_value
+    context.test.check_log_contents(line)
+
+@then("the flowfile fails as file is empty")
+def step_impl(context):
+    line = "Failure as flow file is empty"
+    context.test.check_log_contents(line)
