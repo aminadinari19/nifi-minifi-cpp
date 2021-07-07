@@ -214,7 +214,7 @@ class FileReaderCallback : public OutputStreamCallback {
 
     while (hasMoreToRead() && !found_delimiter) {
       if (begin_ == end_) {
-        input_stream_.read(reinterpret_cast<char *>(buffer_.data()), buffer_.size());
+        input_stream_.read(reinterpret_cast<char *>(buffer_.data()), gsl::narrow<std::streamsize>(buffer_.size()));
 
         const auto num_bytes_read = input_stream_.gcount();
         logger_->log_trace("Read %jd bytes of input", std::intmax_t{num_bytes_read});
@@ -226,15 +226,10 @@ class FileReaderCallback : public OutputStreamCallback {
       char *delimiter_pos = std::find(begin_, end_, input_delimiter_);
       found_delimiter = (delimiter_pos != end_);
 
-      ptrdiff_t zlen{std::distance(begin_, delimiter_pos)};
-      if (found_delimiter) {
-        zlen += 1;
-      }
-      const int len = gsl::narrow<int>(zlen);
-
-      crc_stream.write(reinterpret_cast<uint8_t*>(begin_), len);
-      num_bytes_written += len;
-      begin_ += len;
+      const auto zlen = gsl::narrow<size_t>(std::distance(begin_, delimiter_pos)) + (found_delimiter ? 1 : 0);
+      crc_stream.write(reinterpret_cast<uint8_t*>(begin_), zlen);
+      num_bytes_written += zlen;
+      begin_ += zlen;
     }
 
     if (found_delimiter) {
@@ -399,7 +394,7 @@ void TailFile::onSchedule(const std::shared_ptr<core::ProcessContext> &context, 
   std::string rolling_filename_pattern_glob;
   context->getProperty(RollingFilenamePattern.getName(), rolling_filename_pattern_glob);
   rolling_filename_pattern_ = utils::file::globToRegex(rolling_filename_pattern_glob);
-  initial_start_position_ = utils::parsePropertyWithAllowableValuesOrThrow(*context, InitialStartPosition.getName(), InitialStartPositions::values());
+  initial_start_position_ = InitialStartPositions{utils::parsePropertyWithAllowableValuesOrThrow(*context, InitialStartPosition.getName(), InitialStartPositions::values())};
 }
 
 void TailFile::parseStateFileLine(char *buf, std::map<std::string, TailState> &state) const {

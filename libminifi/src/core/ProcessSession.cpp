@@ -337,8 +337,8 @@ void ProcessSession::importFrom(io::InputStream&& stream, const std::shared_ptr<
  *
  */
 void ProcessSession::importFrom(io::InputStream &stream, const std::shared_ptr<core::FlowFile> &flow) {
-  std::shared_ptr<ResourceClaim> claim = content_session_->create();
-  int max_read = getpagesize();
+  const std::shared_ptr<ResourceClaim> claim = content_session_->create();
+  const auto max_read = gsl::narrow_cast<size_t>(getpagesize());
   std::vector<uint8_t> charBuffer(max_read);
 
   try {
@@ -348,10 +348,10 @@ void ProcessSession::importFrom(io::InputStream &stream, const std::shared_ptr<c
     if (nullptr == content_stream) {
       throw Exception(FILE_OPERATION_EXCEPTION, "Could not obtain claim for " + claim->getContentFullPath());
     }
-    int position = 0;
-    const int max_size = gsl::narrow<int>(stream.size());
+    size_t position = 0;
+    const auto max_size = stream.size();
     while (position < max_size) {
-      const int read_size = std::min(max_read, max_size - position);
+      const auto read_size = std::min(max_read, max_size - position);
       stream.read(charBuffer, read_size);
 
       content_stream->write(charBuffer.data(), read_size);
@@ -407,12 +407,12 @@ void ProcessSession::import(std::string source, const std::shared_ptr<FlowFile> 
       while (input.good()) {
         input.read(reinterpret_cast<char*>(charBuffer.data()), size);
         if (input) {
-          if (stream->write(charBuffer.data(), gsl::narrow<int>(size)) < 0) {
+          if (io::isError(stream->write(charBuffer.data(), size))) {
             invalidWrite = true;
             break;
           }
         } else {
-          if (stream->write(reinterpret_cast<uint8_t*>(charBuffer.data()), gsl::narrow<int>(input.gcount())) < 0) {
+          if (io::isError(stream->write(reinterpret_cast<uint8_t*>(charBuffer.data()), gsl::narrow<size_t>(input.gcount())))) {
             invalidWrite = true;
             break;
           }
@@ -489,7 +489,7 @@ void ProcessSession::import(const std::string& source, std::vector<std::shared_p
       while (true) {
         startTime = utils::timeutils::getTimeMillis();
         uint8_t* delimiterPos = std::find(begin, end, static_cast<uint8_t>(inputDelimiter));
-        const auto len = gsl::narrow<int>(delimiterPos - begin);
+        const auto len = gsl::narrow<size_t>(delimiterPos - begin);
 
         logging::LOG_TRACE(logger_) << "Read input of " << read << " length is " << len << " is at end?" << (delimiterPos == end);
         /*

@@ -16,13 +16,9 @@
  * limitations under the License.
  */
 
-#include <fstream>
-#include <map>
 #include <memory>
 #include <utility>
 #include <string>
-#include <set>
-#include "FlowController.h"
 #include "io/BaseStream.h"
 #include "TestBase.h"
 #include "processors/GetFile.h"
@@ -36,7 +32,6 @@
 #include "core/ProcessContext.h"
 #include "core/ProcessSession.h"
 #include "core/ProcessorNode.h"
-#include "processors/InvokeHTTP.h"
 #include "processors/LogAttribute.h"
 #include "utils/gsl.h"
 
@@ -157,7 +152,8 @@ class CallBack : public minifi::OutputStreamCallback {
   virtual int64_t process(const std::shared_ptr<minifi::io::BaseStream>& stream) {
     // leaving the typo for posterity sake
     std::string st = "we're gnna write some test stuff";
-    return stream->write(reinterpret_cast<uint8_t*>(const_cast<char*>(st.c_str())), gsl::narrow<int>(st.length()));
+    const auto write_ret = stream->write(reinterpret_cast<const uint8_t*>(st.c_str()), st.length());
+    return minifi::io::isError(write_ret) ? -1 : gsl::narrow<int64_t>(write_ret);
   }
 };
 

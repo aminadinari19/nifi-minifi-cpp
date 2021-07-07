@@ -111,7 +111,7 @@ Through JNI extensions you can run NiFi processors using NARs. The JNI extension
 ### To build
 
 #### Utilities
-* CMake 3.11 or greater
+* CMake 3.16 or greater
 * gcc 4.8.4 or greater
 * g++ 4.8.4 or greater
 * bison 3.0.x (3.2 has been shown to fail builds)
@@ -193,7 +193,7 @@ On all distributions please use -DUSE_SHARED_LIBS=OFF to statically link zlib, l
   below.
 
 #### Windows
-  Build and Installation has been tested with Windows 10 using Visual Studio 2017 and Visual Studio 2019.
+  Build and Installation has been tested with Windows 10 using Visual Studio 2019.
   You can build and create an MSI via the CPACK command. This requires the installation of the WiX
   toolset (http://wixtoolset.org/). To do this, open up a prompt into your build directory and
   type 'cpack' . The CPACK command will automatically generate and provide you a path to the distributable
@@ -445,7 +445,7 @@ advanced features.
   CPack: Install projects
   CPack: - Install directory: ~/Development/code/apache/nifi-minifi-cpp
   CPack: Create package
-  CPack: - package: ~/Development/code/apache/nifi-minifi-cpp/build/nifi-minifi-cpp-0.10.0-bin.tar.gz generated.
+  CPack: - package: ~/Development/code/apache/nifi-minifi-cpp/build/nifi-minifi-cpp-0.11.0-bin.tar.gz generated.
   ```
 
 - Create a source assembly located in your build directory with suffix -source.tar.gz
@@ -457,18 +457,18 @@ advanced features.
   CPack: Install projects
   CPack: - Install directory: ~/Development/code/apache/nifi-minifi-cpp
   CPack: Create package
-  CPack: - package: ~/Development/code/apache/nifi-minifi-cpp/build/nifi-minifi-cpp-0.10.0-source.tar.gz generated.
+  CPack: - package: ~/Development/code/apache/nifi-minifi-cpp/build/nifi-minifi-cpp-0.11.0-source.tar.gz generated.
   ```
 
 - (Optional) Create a Docker image from the resulting binary assembly output from "make package".
 ```
 ~/Development/code/apache/nifi-minifi-cpp/build
 $ make docker
-NiFi-MiNiFi-CPP Version: 0.10.0
+NiFi-MiNiFi-CPP Version: 0.11.0
 Current Working Directory: /Users/jdyer/Development/github/nifi-minifi-cpp/docker
 CMake Source Directory: /Users/jdyer/Development/github/nifi-minifi-cpp
-MiNiFi Package: nifi-minifi-cpp-0.10.0-bin.tar.gz
-Docker Command: 'docker build --build-arg UID=1000 --build-arg GID=1000 --build-arg MINIFI_VERSION=0.10.0 --build-arg MINIFI_PACKAGE=nifi-minifi-cpp-0.10.0-bin.tar.gz -t apacheminificpp:0.10.0 .'
+MiNiFi Package: nifi-minifi-cpp-0.11.0-bin.tar.gz
+Docker Command: 'docker build --build-arg UID=1000 --build-arg GID=1000 --build-arg MINIFI_VERSION=0.11.0 --build-arg MINIFI_PACKAGE=nifi-minifi-cpp-0.11.0-bin.tar.gz -t apacheminificpp:0.11.0 .'
 Sending build context to Docker daemon 777.2 kB
 Step 1 : FROM alpine:3.5
  ---> 88e169ea8f46
@@ -490,17 +490,17 @@ $ make docker-verify
 ```
 
 ### Building For Other Distros
-If you have docker installed on your machine you can build for CentOS 7, Fedora 29, Ubuntu 16, Ubuntu 18, and Debian 9 via our make docker commands. The following table
+If you have docker installed on your machine you can build for CentOS 7, Fedora 34, Ubuntu 18.04, Ubuntu 20.04, and Debian 10 via our make docker commands. The following table
 provides the command to build your distro and the output file in your build directory. Since the versions are limited ( except for Ubuntu ) we output the archive based on the distro's name.
 
 
 | Distro         | command           | Output File  |
 | ------------- |:-------------| :-----|
 | CentOS 7  | make centos | nifi-minifi-cpp-centos-$VERSION-bin.tar.gz
-| Debian 9  | make debian | nifi-minifi-cpp-debian-$VERSION-bin.tar.gz
-| Fedora 29  | make fedora | nifi-minifi-cpp-fedora-$VERSION-bin.tar.gz
-| Ubuntu 16  | make u16 | nifi-minifi-cpp-xenial-$VERSION-bin.tar.gz
-| Ubuntu 18  | make u18 | nifi-minifi-cpp-bionic-$VERSION-bin.tar.gz
+| Debian 10 (buster)  | make debian | nifi-minifi-cpp-debian-$VERSION-bin.tar.gz
+| Fedora 34  | make fedora | nifi-minifi-cpp-fedora-$VERSION-bin.tar.gz
+| Ubuntu 18.04 (bionic)  | make u18 | nifi-minifi-cpp-bionic-$VERSION-bin.tar.gz
+| Ubuntu 20.04 (focal)  | make u20 | nifi-minifi-cpp-focal-$VERSION-bin.tar.gz
 
 
 ### Snapcraft

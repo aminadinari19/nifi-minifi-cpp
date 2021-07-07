@@ -19,17 +19,11 @@
 #include "RESTSender.h"
 
 #include <algorithm>
-#include <iostream>
 #include <memory>
-#include <utility>
-#include <map>
 #include <string>
 #include <vector>
 #include <limits>
 #include "utils/file/FileUtils.h"
-#include "utils/StringUtils.h"
-#include "utils/file/FileManager.h"
-#include "utils/FileOutputCallback.h"
 
 namespace org {
 namespace apache {

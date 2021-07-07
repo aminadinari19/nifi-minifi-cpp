@@ -17,9 +17,10 @@
 # under the License.
 #
 
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.16)
+cmake_policy(SET CMP0096 NEW) # policy to preserve the leading zeros in PROJECT_VERSION_{MAJOR,MINOR,PATCH,TWEAK}
 cmake_policy(SET CMP0065 OLD) # default export policy, required for self-dlopen
-project(nifi-minifi-cpp VERSION 0.10.0)
+project(nifi-minifi-cpp VERSION 0.11.0)
 set(PROJECT_NAME "nifi-minifi-cpp")
 
 # Optional build number for linux distribution targets' tar.gz output
@@ -117,7 +118,6 @@ endif()
 
 #### Establish Project Configuration ####
 # Enable usage of the VERSION specifier
-include(CheckCXXCompilerFlag)
 if (WIN32)
     add_compile_definitions(WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNINGS NOMINMAX)
     add_compile_options(/W3 /utf-8)
@@ -137,13 +137,8 @@ if (NOT PORTABLE)
 	endif()
 endif()
 
-if (WIN32)
-	set(CMAKE_CXX_STANDARD 14)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++14")
-else()
-	set(CMAKE_CXX_STANDARD 11)
-endif()
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+include(CppVersion)
+set_cpp_version()
 
 # thread library - we must find this before we set ASAN flags, otherwise FindThreads.cmake sometimes thinks we don't
 # need to link with libpthread because libasan already provides some overridden pthread_* symbols.
@@ -287,8 +282,7 @@ add_library(cron INTERFACE)
 target_include_directories(cron SYSTEM INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/cron")
 
 # cxxopts
-add_library(cxxopts INTERFACE)
-target_include_directories(cxxopts SYSTEM INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/cxxopts/include")
+include(CxxOpts)
 
 # gsl-lite
 add_library(gsl-lite INTERFACE)
@@ -583,8 +577,11 @@ add_subdirectory(main)
 add_subdirectory(nanofi)
 add_dependencies(nanofi minifiexe)
 
-add_subdirectory(encrypt-config)
-add_dependencies(encrypt-config minifi)
+option(ENABLE_ENCRYPT_CONFIG "Enables build of encrypt-config binary." ON)
+if (ENABLE_ENCRYPT_CONFIG)
+	add_subdirectory(encrypt-config)
+	add_dependencies(encrypt-config minifi)
+endif()
 
 if (NOT DISABLE_CURL AND NOT DISABLE_CONTROLLER)
 	add_subdirectory(controller)
@@ -839,18 +836,7 @@ registerTest("encrypt-config/tests")
 
 include(BuildDocs)
 
-if (ENABLE_PYTHON OR NOT DISABLE_SCRIPTING)
-	message(STATUS "Python and scripting extensions will disabled for the docker build as they produce many error messages on MiNiFi startup.")
-	set(ENABLE_PYTHON_CACHE ${ENABLE_PYTHON})
-	set(DISABLE_SCRIPTING_CACHE ${DISABLE_SCRIPTING})
-	set(ENABLE_PYTHON OFF)
-	set(DISABLE_SCRIPTING ON) # Implies DISABLE_PYTHON_SCRIPTING as well
-	include(DockerConfig)
-	set(ENABLE_PYTHON ${ENABLE_PYTHON_CACHE})
-	set(DISABLE_SCRIPTING ${DISABLE_SCRIPTING_CACHE})
-else()
-	include(DockerConfig)
-endif()
+include(DockerConfig)
 
 # Create a custom build target that will run the linter.
 get_property(extensions GLOBAL PROPERTY EXTENSION-LINTERS)

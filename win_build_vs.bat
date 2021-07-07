@@ -21,6 +21,7 @@ if [%1]==[] goto usage
 
 set builddir=%1
 set skiptests=OFF
+set skiptestrun=OFF
 set cmake_build_type=Release
 set build_platform=Win32
 set build_kafka=OFF
@@ -31,7 +32,7 @@ set build_AWS=OFF
 set build_SFTP=OFF
 set build_azure=OFF
 set test_custom_wel_provider=OFF
-set generator="Visual Studio 15 2017"
+set generator="Visual Studio 16 2019"
 set cpack=OFF
 set installer_merge_modules=OFF
 set strict_gsl_checks=
@@ -43,6 +44,7 @@ for %%x in (%*) do (
     set /A arg_counter+=1
     echo %%~x
     if [%%~x] EQU [/T]           set skiptests=ON
+    if [%%~x] EQU [/R]           set skiptestrun=ON
     if [%%~x] EQU [/P]           set cpack=ON
     if [%%~x] EQU [/K]           set build_kafka=ON
     if [%%~x] EQU [/J]           set build_JNI=ON
@@ -53,7 +55,6 @@ for %%x in (%*) do (
     if [%%~x] EQU [/PDH]         set build_PDH=ON
     if [%%~x] EQU [/M]           set installer_merge_modules=ON
     if [%%~x] EQU [/Z]           set build_azure=ON
-    if [%%~x] EQU [/2019]        set generator="Visual Studio 16 2019"
     if [%%~x] EQU [/64]          set build_platform=x64
     if [%%~x] EQU [/D]           set cmake_build_type=RelWithDebInfo
     if [%%~x] EQU [/DD]          set cmake_build_type=Debug
@@ -72,8 +73,10 @@ if [%cpack%] EQU [ON] (
     IF !ERRORLEVEL! NEQ 0 ( popd & exit /b !ERRORLEVEL! )
 )
 if [%skiptests%] NEQ [ON] (
-    ctest --timeout 300 --parallel 8 -C %cmake_build_type% --output-on-failure
-    IF !ERRORLEVEL! NEQ 0 ( popd & exit /b !ERRORLEVEL! )
+    if [%skiptestrun%] NEQ [ON] (
+        ctest --timeout 300 --parallel 8 -C %cmake_build_type% --output-on-failure
+        IF !ERRORLEVEL! NEQ 0 ( popd & exit /b !ERRORLEVEL! )
+    )
 )
 popd
 goto :eof

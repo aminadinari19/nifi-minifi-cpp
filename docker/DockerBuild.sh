@@ -24,7 +24,7 @@ set -euo pipefail
 UID_ARG=1000
 GID_ARG=1000
 MINIFI_VERSION=
-IMAGE_TYPE=release
+IMAGE_TAG=
 DUMP_LOCATION=
 DISTRO_NAME=
 BUILD_NUMBER=
@@ -33,10 +33,10 @@ function usage {
   echo "Usage: ./DockerBuild.sh -v <MINIFI_VERSION> [additional options]"
   echo "Options:"
   echo "-v, --minifi-version  Minifi version number to be used (required)"
-  echo "-i, --image-type      Can be release or minimal (default: release)"
+  echo "-t, --tag             Additional prefix added to the image tag"
   echo "-u, --uid             User id to be used in the Docker image (default: 1000)"
   echo "-g, --gid             Group id to be used in the Docker image (default: 1000)"
-  echo "-d, --distro-name     Linux distribution build to be used for alternative builds (xenial|bionic|fedora|debian|centos)"
+  echo "-d, --distro-name     Linux distribution build to be used for alternative builds (bionic|focal|fedora|debian|centos)"
   echo "-l  --dump-location   Path where to the output dump to be put"
   echo "-c  --cmake-param     CMake parameter passed in PARAM=value format"
   echo "-h  --help            Show this help message"
@@ -62,8 +62,8 @@ while [[ $# -gt 0 ]]; do
     shift
     shift
     ;;
-    -i|--image-type)
-      IMAGE_TYPE="$2"
+    -t|--tag)
+      IMAGE_TAG="$2"
       shift
       shift
       ;;
@@ -114,21 +114,22 @@ else
 fi
 
 TAG=""
-if [ "${IMAGE_TYPE}" != "release" ]; then
-  TAG="${IMAGE_TYPE}-"
+if [ -n "${IMAGE_TAG}" ]; then
+  TAG="${IMAGE_TAG}-"
 fi
-
-TARGZ_TAG=""
 if [ -n "${DISTRO_NAME}" ]; then
   TAG="${TAG}${DISTRO_NAME}-"
-  TARGZ_TAG="${DISTRO_NAME}-"
 fi
-
 TAG="${TAG}${MINIFI_VERSION}"
-TARGZ_TAG="${TARGZ_TAG}${MINIFI_VERSION}"
-
 if [ -n "${BUILD_NUMBER}" ]; then
   TAG="${TAG}-${BUILD_NUMBER}"
+fi
+
+TARGZ_TAG="bin"
+if [ -n "${DISTRO_NAME}" ]; then
+  TARGZ_TAG="${TARGZ_TAG}-${DISTRO_NAME}"
+fi
+if [ -n "${BUILD_NUMBER}" ]; then
   TARGZ_TAG="${TARGZ_TAG}-${BUILD_NUMBER}"
 fi
 
@@ -136,19 +137,17 @@ DOCKER_COMMAND="docker build "
 BUILD_ARGS="--build-arg UID=${UID_ARG} \
             --build-arg GID=${GID_ARG} \
             --build-arg MINIFI_VERSION=${MINIFI_VERSION} \
-            --build-arg IMAGE_TYPE=${IMAGE_TYPE} \
             --build-arg DUMP_LOCATION=${DUMP_LOCATION} \
             --build-arg DISTRO_NAME=${DISTRO_NAME} ${BUILD_ARGS}"
 
 DOCKER_COMMAND="${DOCKER_COMMAND} ${BUILD_ARGS} \
-                --target ${IMAGE_TYPE} \
                 -f ${DOCKERFILE} \
                 -t \
                 apacheminificpp:${TAG} .."
 
-echo "Docker Command: '$DOCKER_COMMAND'"
+echo "Docker Command: 'DOCKER_BUILDKIT=1 ${DOCKER_COMMAND}'"
 DOCKER_BUILDKIT=1 ${DOCKER_COMMAND}
 
 if [ -n "${DUMP_LOCATION}" ]; then
-  docker run --rm --entrypoint cat "apacheminificpp:${TAG}" "/opt/minifi/build/nifi-minifi-cpp-${MINIFI_VERSION}-bin.tar.gz" > "${DUMP_LOCATION}/nifi-minifi-cpp-${TARGZ_TAG}-bin.tar.gz"
+  docker run --rm --entrypoint cat "apacheminificpp:${TAG}" "/opt/minifi/build/nifi-minifi-cpp-${MINIFI_VERSION}-bin.tar.gz" > "${DUMP_LOCATION}/nifi-minifi-cpp-${MINIFI_VERSION}-${TARGZ_TAG}.tar.gz"
 fi
