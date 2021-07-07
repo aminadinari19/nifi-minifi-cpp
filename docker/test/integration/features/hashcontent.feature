@@ -30,3 +30,11 @@ Scenario Outline: HashContent adds hash attribute to flowfiles
 Scenario: HashContent fails if the file is empty
   Given a GetFile processor with the "Input Directory" property set to "/tmp/input"
   And an empty file is present in "/tmp/input"
+  And a HashContent processor with the "Hash Attribute" property set to "hash"
+  And a LogAttribute processor with the "Log level" property set to "trace"
+  And a PutFile processor with the "Directory" property set to "/tmp/output"
+  And the "success" relationship of the GetFile processor is connected to the HashContent
+  And the "success" relationship of the HashContent processor is connected to the LogAttribute
+  And the "success" relationship of the LogAttribute processor is connected to the PutFile
+  When the MiNiFi instance starts up
+  Then at least one empty flowfile is placed in the monitored directory in less than 90 seconds

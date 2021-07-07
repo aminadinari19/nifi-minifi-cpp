@@ -174,8 +174,7 @@ def step_impl(context, content, path):
 
 @given("an empty file is present in \"{path}\"")
 def step_impl(context,path):
-    context.test.add_test_data(path)
-
+    context.test.add_test_data(path,"")
 
 @given("a file with filename \"{file_name}\" and content \"{content}\" is present in \"{path}\"")
 def step_impl(context, file_name, content, path):
@@ -320,4 +319,9 @@ def step_impl(context, cluster_name, object_data):
 @then("the flowfile has an attribute called \"{hash}\" set to {hash_value}")
 def step_impl(context, hash, hash_value):
     line = "key:" + hash + " value:" + hash_value
+    context.test.check_log_contents(line)
+
+@then("the flowfile fails as file is empty")
+def step_impl(context):
+    line = "Failure as flow file is empty"
     context.test.check_log_contents(line)
