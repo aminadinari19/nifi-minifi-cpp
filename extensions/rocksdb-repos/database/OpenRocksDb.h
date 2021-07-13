@@ -19,7 +19,10 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <vector>
 #include "utils/gsl.h"
+
 #include "rocksdb/db.h"
 #include "rocksdb/utilities/checkpoint.h"
 #include "WriteBatch.h"
@@ -63,6 +66,8 @@ class OpenRocksDb {
   std::unique_ptr<rocksdb::Iterator> NewIterator(const rocksdb::ReadOptions& options);
 
   rocksdb::Status NewCheckpoint(rocksdb::Checkpoint** checkpoint);
+
+  rocksdb::Status NewCheckpoint(std::unique_ptr<rocksdb::Checkpoint>& checkpoint);
 
   rocksdb::Status FlushWAL(bool sync);
 

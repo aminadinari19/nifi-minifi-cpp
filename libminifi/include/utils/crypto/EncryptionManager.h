@@ -15,11 +15,16 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <utility>
 #include <string>
-#include "utils/EncryptionProvider.h"
-#include "properties/Properties.h"
+#include <memory>
+#include "utils/crypto/EncryptionUtils.h"
 #include "utils/OptionalUtils.h"
-#include "utils/StringUtils.h"
+#include "utils/crypto/ciphers/XSalsa20.h"
+#include "utils/crypto/ciphers/Aes256Ecb.h"
+#include "core/logging/Logger.h"
 
 namespace org {
 namespace apache {
@@ -28,27 +33,19 @@ namespace minifi {
 namespace utils {
 namespace crypto {
 
-namespace {
+class EncryptionManager {
+  static std::shared_ptr<core::logging::Logger> logger_;
+ public:
+  explicit EncryptionManager(std::string key_dir) : key_dir_(std::move(key_dir)) {}
 
-#ifdef WIN32
-constexpr const char* DEFAULT_NIFI_BOOTSTRAP_FILE = "\\conf\\bootstrap.conf";
-#else
-constexpr const char* DEFAULT_NIFI_BOOTSTRAP_FILE = "./conf/bootstrap.conf";
-#endif  // WIN32
+  utils::optional<XSalsa20Cipher> createXSalsa20Cipher(const std::string& key_name) const;
+  utils::optional<Aes256EcbCipher> createAes256EcbCipher(const std::string& key_name) const;
+ private:
+  utils::optional<Bytes> readKey(const std::string& key_name) const;
+  bool writeKey(const std::string& key_name, const Bytes& key) const;
 
-constexpr const char* CONFIG_ENCRYPTION_KEY_PROPERTY_NAME = "nifi.bootstrap.sensitive.key";
-
-}  // namespace
-
-utils::optional<EncryptionProvider> EncryptionProvider::create(const std::string& home_path) {
-  minifi::Properties bootstrap_conf;
-  bootstrap_conf.setHome(home_path);
-  bootstrap_conf.loadConfigureFile(DEFAULT_NIFI_BOOTSTRAP_FILE);
-  return bootstrap_conf.getString(CONFIG_ENCRYPTION_KEY_PROPERTY_NAME)
-    | utils::map([](const std::string &encryption_key_hex) { return utils::StringUtils::from_hex(encryption_key_hex); })
-    | utils::map(&utils::crypto::stringToBytes)
-    | utils::map([](const utils::crypto::Bytes &encryption_key_bytes) { return EncryptionProvider{encryption_key_bytes}; });
-}
+  std::string key_dir_;
+};
 
 }  // namespace crypto
 }  // namespace utils

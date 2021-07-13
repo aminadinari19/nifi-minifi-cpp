@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+#include <utility>
+
 #include "OpenRocksDb.h"
 #include "ColumnHandle.h"
 #include "RocksDbInstance.h"
@@ -76,6 +78,15 @@ std::unique_ptr<rocksdb::Iterator> OpenRocksDb::NewIterator(const rocksdb::ReadO
 
 rocksdb::Status OpenRocksDb::NewCheckpoint(rocksdb::Checkpoint **checkpoint) {
   return rocksdb::Checkpoint::Create(impl_.get(), checkpoint);
+}
+
+rocksdb::Status OpenRocksDb::NewCheckpoint(std::unique_ptr<rocksdb::Checkpoint>& checkpoint) {
+  rocksdb::Checkpoint* checkpoint_ptr = nullptr;
+  rocksdb::Status result = NewCheckpoint(&checkpoint_ptr);
+  if (result.ok()) {
+    checkpoint.reset(checkpoint_ptr);
+  }
+  return result;
 }
 
 rocksdb::Status OpenRocksDb::FlushWAL(bool sync) {

@@ -15,41 +15,36 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include <utility>
-#include <string>
-#include "utils/EncryptionUtils.h"
-#include "utils/OptionalUtils.h"
+#include "core/state/nodes/ConfigurationChecksums.h"
 
 namespace org {
 namespace apache {
 namespace nifi {
 namespace minifi {
-namespace utils {
-namespace crypto {
+namespace state {
+namespace response {
 
-class EncryptionProvider {
- public:
-  explicit EncryptionProvider(Bytes encryption_key)
-      : encryption_key_(std::move(encryption_key)) {}
+void ConfigurationChecksums::addChecksumCalculator(utils::ChecksumCalculator& checksum_calculator) {
+  checksum_calculators_.push_back(gsl::make_not_null(&checksum_calculator));
+}
 
-  static utils::optional<EncryptionProvider> create(const std::string& home_path);
+std::vector<SerializedResponseNode> ConfigurationChecksums::serialize() {
+  SerializedResponseNode checksums_node;
+  checksums_node.name = utils::ChecksumCalculator::CHECKSUM_TYPE;
+  checksums_node.children.reserve(checksum_calculators_.size());
 
-  std::string encrypt(const std::string& data) const {
-    return utils::crypto::encrypt(data, encryption_key_);
+  for (auto checksum_calculator : checksum_calculators_) {
+    SerializedResponseNode file_checksum_node;
+    file_checksum_node.name = checksum_calculator->getFileName();
+    file_checksum_node.value = checksum_calculator->getChecksum();
+    checksums_node.children.push_back(file_checksum_node);
   }
 
-  std::string decrypt(const std::string& data) const {
-    return utils::crypto::decrypt(data, encryption_key_);
-  }
+  return std::vector<SerializedResponseNode>{checksums_node};
+}
 
- private:
-  const Bytes encryption_key_;
-};
-
-}  // namespace crypto
-}  // namespace utils
+}  // namespace response
+}  // namespace state
 }  // namespace minifi
 }  // namespace nifi
 }  // namespace apache
