@@ -55,6 +55,8 @@ void HashContent::initialize() {
   relationships.insert(Success);
   relationships.insert(Failure);
   setSupportedRelationships(relationships);
+  setAutoTerminatedRelationships(relationships);
+
 }
 
 void HashContent::onSchedule(core::ProcessContext *context, core::ProcessSessionFactory* /*sessionFactory*/) {
@@ -86,12 +88,12 @@ void HashContent::onTrigger(core::ProcessContext *, core::ProcessSession *sessio
   if (failOnEmpty_ && flowFile->getSize() == 0) {
     logger_->log_debug("Failure as flow file is empty");
     session->transfer(flowFile, Failure);
+    return;
   }
-
-  logger_->log_trace("attempting read");
-  ReadCallback cb(flowFile, *this);
-  session->read(flowFile, &cb);
-  session->transfer(flowFile, Success);
+    logger_->log_trace("attempting read");
+    ReadCallback cb(flowFile, *this);
+    session->read(flowFile, &cb);
+    session->transfer(flowFile, Success);
 }
 
 int64_t HashContent::ReadCallback::process(const std::shared_ptr<io::BaseStream>& stream) {

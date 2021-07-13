@@ -145,21 +145,45 @@ TEST_CASE("TestingFailOnEmptyProperty", "[HashContentPropertiesCheck]") {
   plan->setProperty(getfile, org::apache::nifi::minifi::processors::GetFile::Directory.getName(), tempdir);
   plan->setProperty(getfile, org::apache::nifi::minifi::processors::GetFile::KeepSourceFile.getName(), "true");
 
-  std::shared_ptr<core::Processor> md5processor = plan->addProcessor("HashContent", "HashContentMD5",
-                                                                     core::Relationship("success", "description"), true);
-  plan->setProperty(md5processor, org::apache::nifi::minifi::processors::HashContent::HashAttribute.getName(), MD5_ATTR);
-  plan->setProperty(md5processor, org::apache::nifi::minifi::processors::HashContent::HashAlgorithm.getName(), "MD5");
-  plan->setProperty(md5processor, org::apache::nifi::minifi::processors::HashContent::FailOnEmpty.getName(), "true");
+  SECTION("with an empty file and fail on empty property set to false") {
 
-  std::stringstream stream_dir;
-  stream_dir << tempdir << utils::file::FileUtils::get_separator() << TEST_FILE;
-  std::string test_file_path = stream_dir.str();
-  std::ofstream test_file(test_file_path, std::ios::binary);
+    std::shared_ptr<core::Processor> md5processor = plan->addProcessor("HashContent", "HashContentMD5",
+                                                                       core::Relationship("success", "description"), true);
+    plan->setProperty(md5processor, org::apache::nifi::minifi::processors::HashContent::HashAttribute.getName(), MD5_ATTR);
+    plan->setProperty(md5processor, org::apache::nifi::minifi::processors::HashContent::HashAlgorithm.getName(), "MD5");
+    plan->setProperty(md5processor, org::apache::nifi::minifi::processors::HashContent::FailOnEmpty.getName(), "false");
 
-  plan->runNextProcessor();
-  plan->runNextProcessor();
+    std::stringstream stream_dir;
+    stream_dir << tempdir << utils::file::FileUtils::get_separator() << TEST_FILE;
+    std::string test_file_path = stream_dir.str();
+    std::ofstream test_file(test_file_path, std::ios::binary);
 
-  REQUIRE(LogTestController::getInstance().contains("Failure as flow file is empty"));
+    plan->runNextProcessor();
+    plan->runNextProcessor();
+
+    REQUIRE(LogTestController::getInstance().contains("attempting read"));
+
+  }
+
+  SECTION("with an empty file and fail on empty property set to true") {
+
+    std::shared_ptr<core::Processor> md5processor = plan->addProcessor("HashContent", "HashContentMD5",
+                                                                       core::Relationship("success", "description"), true);
+    plan->setProperty(md5processor, org::apache::nifi::minifi::processors::HashContent::HashAttribute.getName(), MD5_ATTR);
+    plan->setProperty(md5processor, org::apache::nifi::minifi::processors::HashContent::HashAlgorithm.getName(), "MD5");
+    plan->setProperty(md5processor, org::apache::nifi::minifi::processors::HashContent::FailOnEmpty.getName(), "true");
+
+    std::stringstream stream_dir;
+    stream_dir << tempdir << utils::file::FileUtils::get_separator() << TEST_FILE;
+    std::string test_file_path = stream_dir.str();
+    std::ofstream test_file(test_file_path, std::ios::binary);
+
+    plan->runNextProcessor();
+    plan->runNextProcessor();
+
+    REQUIRE(LogTestController::getInstance().contains("Failure as flow file is empty"));
+
+  }
 }
 
 #endif  // OPENSSL_SUPPORT
